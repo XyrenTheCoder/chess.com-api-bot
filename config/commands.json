@@ -1,0 +1,26 @@
+{
+    "help": {
+        "name": "Help",
+        "description": "This command.",
+        "args": "",
+        "disabled": false
+    },
+    "rate": {
+        "name": "Rate",
+        "description": "Rate a user of your choice. You can rate them from 1-5 stars.",
+        "args": "`user` `rating`",
+        "disabled": false
+    },
+    "profile": {
+        "name": "Profile",
+        "description": "View the profile of a user.",
+        "args": "`user`",
+        "disabled": false
+    },
+    "rating": {
+        "name": "View Rating",
+        "description": "View a user's rating.",
+        "args": "`user`",
+        "disabled": false
+    }
+}

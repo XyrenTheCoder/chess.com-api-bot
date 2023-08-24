@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "ratebot"
+version = "0.1.0"
+description = "A simple user rating bot for Discord."
+authors = ["notsniped"]
+license = "GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+py-cord = "^2.4.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
