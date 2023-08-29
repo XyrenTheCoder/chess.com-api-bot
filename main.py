@@ -142,12 +142,13 @@ async def rating(ctx: ApplicationContext, user: discord.User):
 # Bot Initialization
 try:
     with open("config/auth.json", 'r', encoding="utf-8") as f: auth_config = json.load(f)
-    if auth_config["TOKEN"] == "": 
-        print("Unable to deploy client: You have not added a bot token yet. Add one first in 'TOKEN' in 'config/auth.json'.")
-        print("You can get a bot token from https://discord.com/developers by creating a new application.")
-        raise SystemExit
-    if auth_config["deploy_mode"] == "local": client.run(auth_config["TOKEN"])
-    elif auth_config["deploy_mode"] == "replit": client.run(getenv["TOKEN"])
+    if auth_config["deploy_mode"] == "replit": client.run(getenv["TOKEN"])
+    if auth_config["deploy_mode"] == "local":
+        if auth_config["TOKEN"] == "": 
+            print("Unable to deploy client: You have not added a bot token yet. Add one first in 'TOKEN' in 'config/auth.json'.")
+            print("You can get a bot token from https://discord.com/developers by creating a new application.")
+            raise SystemExit
+        client.run(auth_config["TOKEN"])
 except KeyError:
     print("Unable to deploy client: Your configuration file is likely corrupted. Please reinstall the bot.")
     raise SystemExit
