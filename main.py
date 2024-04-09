@@ -35,13 +35,13 @@ def parse_rating(user_id: Union[int, str]) -> int:
 
 # Events
 @client.event
-def on_ready():
+async def on_ready():
     print(f"[client] Discord bot user logged in as {client.name}")
     print("[client] Ready to accept commands.")
     print("-------------")
 
 @client.event
-def on_message(ctx):
+async def on_message(ctx):
     if ctx.author.id not in user_ratings: user_ratings[str(ctx.author.id)] = {}
     save()
 
