@@ -98,7 +98,7 @@ async def profile(ctx: ApplicationContext, user: discord.User = None):
     )
     localembed.set_thumbnail(url=user.display_avatar)
     localembed.add_field(name="Profile Picture URL", value=f"[Click to view]({user.display_avatar})")
-    localembed.add_field(name="Joined Discord at", value=f"{strftime(user.created_at, '%d %B, %Y')}")
+    localembed.add_field(name="Joined Discord at", value=f"{user.created_at.strftime('%d %B, %Y')}")
     localembed.add_field(name="User id", value=user.id)
     localembed.add_field(name="Rating", value=f"{str(parse_rating(user.id))} stars")
     # localembed.set_image(url=) TODO: Make profile metadata database, then activate this property
