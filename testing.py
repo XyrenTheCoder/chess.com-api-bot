@@ -22,7 +22,7 @@ def save_database(database, filename):
         json.dump(database, f, indent=4)
 
 def main():
-    num_entries = 1000000
+    num_entries = 100000
     database = generate_database(num_entries)
     save_database(database, "db/user_ratings.json")
     print("Database created successfully!")
