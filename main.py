@@ -27,7 +27,8 @@ def parse_rating(user_id: Union[int, str]) -> int:
         users_rated.append(user)
     total_stars = 0
     number_of_ratings = 0
-    for rating in users_rated:
+    for uid in users_rated:
+        rating = user_ratings[str(user_id)][uid]
         number_of_ratings += 1
         total_stars += rating
     if number_of_ratings == 0: return 0.0  # Return 0 as user rating if no ratings exist, to prevent ZeroDivisionError.
