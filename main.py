@@ -148,6 +148,7 @@ try:
             print("Unable to deploy client: You have not added a bot token yet. Add one first in 'TOKEN' in 'config/auth.json'.")
             print("You can get a bot token from https://discord.com/developers by creating a new application.")
             raise SystemExit
+        print("[main/Startup] Initializing bot client...")
         client.run(auth_config["TOKEN"])
 except KeyError:
     print("Unable to deploy client: Your configuration file is likely corrupted. Please reinstall the bot.")
