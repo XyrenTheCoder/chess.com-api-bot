@@ -30,6 +30,7 @@ def parse_rating(user_id: Union[int, str]) -> int:
     for rating in users_rated:
         number_of_ratings += 1
         total_stars += rating
+    if number_of_ratings == 0: return 0  # Return 0 as user rating if no ratings exist, to prevent ZeroDivisionError.
     aggregated_rating = round(total_stars/number_of_ratings, 1)
     return aggregated_rating
 
