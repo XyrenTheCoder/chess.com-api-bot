@@ -44,7 +44,7 @@ async def on_ready():
 
 @client.event
 async def on_message(ctx):
-    if ctx.author.id not in user_ratings: user_ratings[str(ctx.author.id)] = {}
+    if str(ctx.author.id) not in user_ratings: user_ratings[str(ctx.author.id)] = {}
     save()
 
 # Slash Commands
