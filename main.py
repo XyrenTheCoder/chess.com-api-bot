@@ -36,7 +36,7 @@ def parse_rating(user_id: Union[int, str]) -> int:
 # Events
 @client.event
 async def on_ready():
-    print(f"[client] Discord bot user logged in as {client.name}")
+    print(f"[client] Discord bot user logged in as {client.user.name}")
     print("[client] Ready to accept commands.")
     print("-------------")
 
