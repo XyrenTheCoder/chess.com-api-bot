@@ -94,7 +94,7 @@ async def profile(ctx: ApplicationContext, user: discord.User = None):
     localembed = discord.Embed(
         title=f"{user.display_name}'s profile",
         description=f"{user.name}",
-        color=user.accent_color
+        color=discord.Color.random()  # Removed user.accent_color from embed color because PyCord can't behave :(
     )
     localembed.set_thumbnail(url=user.display_avatar)
     localembed.add_field(name="Profile Picture URL", value=f"[Click to view]({user.display_avatar})")
