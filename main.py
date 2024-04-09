@@ -70,7 +70,7 @@ async def _help(ctx: ApplicationContext):
 @option(name="user", description="The person you want to rate", type=discord.User)
 @option(name="rating", description="The rating you want to give to the user", type=str, choices=["1 star", "2 stars", "3 stars", "4 stars", "5 stars"])
 async def rate(ctx: ApplicationContext, user: discord.User, rating: str):
-    if ctx.author.id not in user_ratings: user_ratings[str(ctx.author.id)] = {}
+    if str(ctx.author.id) not in user_ratings: user_ratings[str(ctx.author.id)] = {}
     if rating not in ["1 star", "2 stars", "3 stars", "4 stars", "5 stars"]: return
     if rating == "1 star": rating_int = 1
     elif rating == "2 stars": rating_int = 2
