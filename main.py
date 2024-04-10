@@ -27,7 +27,7 @@ with open("db/profiles.json", 'r') as f: profile_metadata = json.load(f)
 # Pre-initialization Commands
 def save() -> int:
     with open("db/user_ratings.json", 'w+') as f: json.dump(user_ratings, f, indent=4)
-    # with open("db/profiles.json", 'w+') as f: json.dump(profile_metadata, f, indent=4)  TODO: Uncomment this line once full profile metadata support is ready
+    with open("db/profiles.json", 'w+') as f: json.dump(profile_metadata, f, indent=4)  # TODO: Uncomment this line once full profile metadata support is ready
     return 0
 
 def parse_rating(user_id: Union[int, str]) -> int:
@@ -54,6 +54,7 @@ async def on_ready():
 @client.event
 async def on_message(ctx):
     if str(ctx.author.id) not in user_ratings: user_ratings[str(ctx.author.id)] = {}
+    if str(ctx.author.id) not in profile_metadata: profile_metadata[str(ctx.author.id)] = {"profile_banner_url": None}
     save()
 
 # Slash Commands
@@ -112,7 +113,8 @@ async def profile(ctx: ApplicationContext, user: discord.User = None):
     localembed.add_field(name="Joined Discord at", value=f"{user.created_at.strftime('%d %B, %Y')}")
     localembed.add_field(name="User id", value=user.id)
     localembed.add_field(name="Rating", value=f"{str(parse_rating(user.id))} stars")
-    # localembed.set_image(url=) TODO: Make profile metadata database, then activate this property
+    if profile_metadata[str(user.id)]["profile_banner_url"] is not None:
+        localembed.set_image(url=profile_metadata[str(user.id)]["profile_banner_url"])
     await ctx.respond(embed=localembed)
 
 @client.slash_command(
@@ -128,6 +130,23 @@ async def rating(ctx: ApplicationContext, user: discord.User = None):
     )
     await ctx.respond(embed=localembed)
 
+# User Profile Customization Commands
+# customization = discord.commands.SlashCommandGroup("customize", "Commands used to customize the user's /profile command.")  Disable because command doesn't sync with this
+
+@client.slash_command(
+    name="profile_banner",
+    description="Set a banner to display on your /profile command! (url only)"
+)
+@option(name="image_url", description="The url of your new profile banner (leave blank to disable)", type=str, default=None)
+async def banner(ctx: ApplicationContext, image_url: str = None):
+    """Set a banner to display on your /profile command! (url only)"""
+    if (image_url is not None) and ("https://" not in image_url):
+        return await ctx.respond("Your custom banner url must contain `https://`!", ephemeral=True)
+    profile_metadata[str(ctx.author.id)]["profile_banner_url"] = image_url
+    if image_url is None: localembed = discord.Embed(description=":white_check_mark: Your custom profile banner has been successfully removed.", color=discord.Color.green())
+    else: localembed = discord.Embed(description=":white_check_mark: Your custom profile banner has been successfully set! Check it out using `/profile`.", color=discord.Color.green())
+    return await ctx.respond(embed=localembed)
+
 # User Commands
 @client.user_command(name="View Profile")
 async def _profile(ctx: ApplicationContext, user: discord.User):
@@ -141,7 +160,8 @@ async def _profile(ctx: ApplicationContext, user: discord.User):
     localembed.add_field(name="Joined Discord at", value=f"{user.created_at.strftime('%d %B, %Y')}")
     localembed.add_field(name="User id", value=user.id)
     localembed.add_field(name="Rating", value=f"{str(parse_rating(user.id))} stars")
-    # localembed.set_image(url=) TODO: Make profile metadata database, then activate this property
+    if profile_metadata[str(user.id)]["profile_banner_url"] is not None:
+        localembed.set_image(url=profile_metadata[str(user.id)]["profile_banner_url"])
     await ctx.respond(embed=localembed)
 
 @client.user_command(name="View Rating")
