@@ -1,7 +1,7 @@
 # Imports
 import discord
 import json
-from os import getenv
+import os
 from time import strftime
 from typing import Union
 from discord import option, ApplicationContext
@@ -146,7 +146,7 @@ async def rating(ctx: ApplicationContext, user: discord.User):
 # Bot Initialization
 try:
     with open("config/auth.json", 'r', encoding="utf-8") as f: auth_config = json.load(f)
-    if auth_config["deploy_mode"] == "replit": client.run(getenv["TOKEN"])
+    if auth_config["deploy_mode"] == "replit": client.run(os.getenv["TOKEN"])
     if auth_config["deploy_mode"] == "local":
         if auth_config["TOKEN"] == "": 
             print("Unable to deploy client: You have not added a bot token yet. Add one first in 'TOKEN' in 'config/auth.json'.")
