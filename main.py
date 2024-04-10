@@ -1,7 +1,7 @@
 # Imports
 import discord
 import json
-from os import getenv
+import os
 from time import strftime
 from typing import Union
 from discord import option, ApplicationContext
@@ -11,11 +11,20 @@ from discord.ext import commands
 client = discord.Bot()
 color = discord.Color.random()
 
+# Check for Databases and Autogenerate them
+if not os.path.isdir("db"): os.mkdir("db")
+if not os.path.isfile("db/profile.json"):
+    with open("db/profiles.json", 'x', encoding="utf-8") as f: json.dump({}, f)
+if not os.path.isfile("db/user_ratings.json"):
+    with open("db/user_ratings.json", 'x', encoding="utf-8") as f: json.dump({}, f)
+
+# Load Databases
 print("[client/startup] Populating databases...")
 with open("db/user_ratings.json", 'r') as f: user_ratings = json.load(f)
 with open("config/commands.json", 'r') as f: commands_db = json.load(f)
 with open("db/profiles.json", 'r') as f: profile_metadata = json.load(f)
 
+# Pre-initialization Commands
 def save() -> int:
     with open("db/user_ratings.json", 'w+') as f: json.dump(user_ratings, f, indent=4)
     # with open("db/profiles.json", 'w+') as f: json.dump(profile_metadata, f, indent=4)  TODO: Uncomment this line once full profile metadata support is ready
@@ -146,7 +155,7 @@ async def rating(ctx: ApplicationContext, user: discord.User):
 # Bot Initialization
 try:
     with open("config/auth.json", 'r', encoding="utf-8") as f: auth_config = json.load(f)
-    if auth_config["deploy_mode"] == "replit": client.run(getenv["TOKEN"])
+    if auth_config["deploy_mode"] == "replit": client.run(os.getenv["TOKEN"])
     if auth_config["deploy_mode"] == "local":
         if auth_config["TOKEN"] == "": 
             print("Unable to deploy client: You have not added a bot token yet. Add one first in 'TOKEN' in 'config/auth.json'.")
