@@ -11,12 +11,14 @@ from discord.ext import commands
 client = discord.Bot()
 color = discord.Color.random()
 
+# Check for Databases and Autogenerate them
 if not os.path.isdir("db"): os.mkdir("db")
 if not os.path.isfile("db/profile.json"):
     with open("db/profile.json", 'x', encoding="utf-8") as f: json.dump({}, f)
 if not os.path.isfile("db/user_ratings.json"):
     with open("db/user_ratings.json", 'x', encoding="utf-8") as f: json.dump({}, f)
 
+# Load Databases
 print("[client/startup] Populating databases...")
 with open("db/user_ratings.json", 'r') as f: user_ratings = json.load(f)
 with open("config/commands.json", 'r') as f: commands_db = json.load(f)
