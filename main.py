@@ -24,6 +24,7 @@ with open("db/user_ratings.json", 'r') as f: user_ratings = json.load(f)
 with open("config/commands.json", 'r') as f: commands_db = json.load(f)
 with open("db/profiles.json", 'r') as f: profile_metadata = json.load(f)
 
+# Pre-initialization Commands
 def save() -> int:
     with open("db/user_ratings.json", 'w+') as f: json.dump(user_ratings, f, indent=4)
     # with open("db/profiles.json", 'w+') as f: json.dump(profile_metadata, f, indent=4)  TODO: Uncomment this line once full profile metadata support is ready
