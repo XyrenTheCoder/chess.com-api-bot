@@ -2,47 +2,72 @@
 import discord
 import json
 import os
+import chessdotcom
+import random, string
 from time import strftime
 from typing import Union
 from discord import option, ApplicationContext
 from discord.ext import commands
+from discord.ext.pages import Paginator, Page
 
-# Variables
+# Global variables
 client = discord.Bot()
 color = discord.Color.random()
 
+cc = chessdotcom
+cc.Client.request_config["headers"]["User-Agent"] = (
+    "Discord bot by XyrenChess."
+)
+
+flairs = [
+    "<:diamond0:1229010811268239400>",
+    "<:diamond1:1229012475022807191>",
+    "<:diamond2:1229012509206380555>",
+    "<:diamond3:1229012532308480100>",
+    "<:diamond4:1229012556757074022>",
+    "<:diamond5:1229012590945107989>",
+    "<:diamond6:1229012630195273819>",
+    "<:diamond7:1229012658175611012>",
+    "<:diamond8:1229012680711475340>",
+    "<:crown0:1229037903695581214>",
+    "<:crown1:1229037989661904916>",
+    "<:crown2:1229038014249046017>",
+    "<:crown3:1229038034960384060>",
+    "<:crown4:1229038084616753214>",
+    "<:crown5:1229038105416306849>",
+    "<:crown6:1229038131555336252>",
+    "<:crown7:1229038174534111323>",
+    "<:crown8:1229038204993409097>",
+    "<:star0:1229041993402028043>",
+    "<:star1:1229042017116618882>",
+    "<:star2:1229042061030850652>",
+    "<:star3:1229042083080306838>",
+    "<:star4:1229042112922652722>",
+    "<:star5:1229042137295749120>",
+    "<:star6:1229042177129185341>",
+    "<:star7:1229042203335069706>",
+    "<:star8:1229042224113778800>"
+]
+
 # Check for Databases and Autogenerate them
-if not os.path.isdir("db"): os.mkdir("db")
-if not os.path.isfile("db/profiles.json"):
-    with open("db/profiles.json", 'x', encoding="utf-8") as f: json.dump({}, f)
-if not os.path.isfile("db/user_ratings.json"):
-    with open("db/user_ratings.json", 'x', encoding="utf-8") as f: json.dump({}, f)
+if not os.path.isdir("db"):
+    os.mkdir("db")
+if not os.path.isfile("db/chesscom_users.json"):
+    with open("db/chesscom_users.json", 'x', encoding="utf-8") as f:
+        json.dump({}, f)
+
+# Pre-initialization Commands
+def save(data: str) -> int:
+    with open(f"db/chesscom_users.json", 'w+') as f:
+        json.dump(data, f, indent=4)
+    return 0
 
 # Load Databases
 print("[client/startup] Populating databases...")
-with open("db/user_ratings.json", 'r') as f: user_ratings = json.load(f)
-with open("config/commands.json", 'r') as f: commands_db = json.load(f)
-with open("db/profiles.json", 'r') as f: profile_metadata = json.load(f)
-
-# Pre-initialization Commands
-def save() -> int:
-    with open("db/user_ratings.json", 'w+') as f: json.dump(user_ratings, f, indent=4)
-    with open("db/profiles.json", 'w+') as f: json.dump(profile_metadata, f, indent=4)  # TODO: Uncomment this line once full profile metadata support is ready
-    return 0
-
-def parse_rating(user_id: Union[int, str]) -> int:
-    users_rated = []
-    for user in user_ratings[str(user_id)].keys():
-        users_rated.append(user)
-    total_stars = 0
-    number_of_ratings = 0
-    for uid in users_rated:
-        rating = user_ratings[str(user_id)][uid]
-        number_of_ratings += 1
-        total_stars += rating
-    if number_of_ratings == 0: return 0.0  # Return 0 as user rating if no ratings exist, to prevent ZeroDivisionError.
-    aggregated_rating = round(total_stars/number_of_ratings, 1)
-    return aggregated_rating
+with open("db/chesscom_users.json", 'r') as f:
+    cc_user = json.load(f)
+with open("config/commands.json", 'r') as f:
+    commands_db = json.load(f)
 
 # Events
 @client.event
@@ -52,27 +77,30 @@ async def on_ready():
     print("-------------")
 
 @client.event
-async def on_message(ctx):
-    if str(ctx.author.id) not in user_ratings: user_ratings[str(ctx.author.id)] = {}
-    if str(ctx.author.id) not in profile_metadata: profile_metadata[str(ctx.author.id)] = {"profile_banner_url": None}
-    save()
+async def on_message(ctx: discord.Interaction):
+    # if str(ctx.author.id) not in user_ratings: user_ratings[str(ctx.author.id)] = {}
+    # if str(ctx.author.id) not in profile_metadata: profile_metadata[str(ctx.author.id)] = {"profile_banner_url": None}
+    # save()
+    ...
 
 # Slash Commands
 @client.slash_command(
     name="help",
-    description="Need some command help?"
+    description="Need some help?"
 )
 async def _help(ctx: ApplicationContext):
     parsed_desc = ""
     for command in commands_db:
-        parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command}{commands_db[command]['args']}"
+        parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command} {commands_db[command]['args']}"
     localembed = discord.Embed(
         title="My Commands",
         description=parsed_desc,
-        color=color
+        color=discord.Color.random()
     )
+    localembed.set_footer(text="`< >`: Required, else optional.")
     await ctx.respond(embed=localembed)
 
+"""
 @client.slash_command(
     name="rate",
     description="Rate a user of your choice."
@@ -95,41 +123,455 @@ async def rate(ctx: ApplicationContext, user: discord.User, rating: str):
         color=discord.Color.green()
     )
     await ctx.respond(embed=localembed, ephemeral=True)
+"""
+
+@client.slash_command(
+    name="connect",
+    description="Connect to your Chess.com account."
+)
+@option(name="username", description="Your Chess.com username.", type=str)
+async def connect(ctx: ApplicationContext, username: str):
+    # await ctx.defer(invisible=True)
+    try:
+        pf = cc.get_player_profile(username).json
+        vcode = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+        ids = str(ctx.author.id)
+        cc_user[ids] = {}
+        cc_user[ids]["uname"] = username
+        cc_user[ids]["verified"] = "No"
+        cc_user[ids]["verification_code"] = vcode
+        cc_user[ids]["premium"] = pf["player"]["status"]
+        cc_user[ids]["flair"] = "None"
+        save(cc_user)
+
+        user = await client.fetch_user(ctx.author.id)
+        localembed0 = discord.Embed(
+            title=f"Connecting user `{username}` to **{ctx.author.name}**.",
+            description=f"Your one-time verification code is ||`{vcode}`||. Do not give this information to anyone.",
+            color=discord.Color.random()
+        )
+
+        await user.send(embed=localembed0)
+
+        localembed = discord.Embed(
+            title=f"User `{username}` is being connected to **{ctx.author.name}**.",
+            description=f"",
+            color=discord.Color.random()
+        )
+        localembed.add_field(
+            name=f"Your one-time verification code has been sent to DM.",
+            value="Please use `/verify verify` to verify your connected account."
+        )
+        localembed.set_footer(text="Do not know what to do? Use `/verify help` for the guide to verify your account.")
+        return await ctx.respond(embed=localembed)
+    except cc.ChessDotComError:
+        localembed = discord.Embed(
+            title=f"User `{username}` does not exist or account has been closed.",
+            description=f"If this is inaccurate, please report this bug to *xyrenchess*.",
+            color=discord.Color.random()
+        )
+
+        return await ctx.respond(embed=localembed)
+
+@client.slash_command(
+    name="verify",
+    description="Verify your connected Chess.com account."
+)
+@option(name="action", description="What to do?", type=str, choices=["help", "verify", "newcode"])
+async def verify(ctx: ApplicationContext, action: str):
+    # await ctx.defer(invisible=True)
+    ids = str(ctx.author.id)
+
+    if action == "help":
+        localembed = discord.Embed(
+            title=f"Verifying using one-time verification code provided when connecting Chess.com account.",
+            description=f"To verify your Chess.com account, follow the instructions below.",
+            color=discord.Color.random()
+        )
+        localembed.add_field(
+            name="Step 1:",
+            value="You need to use `/connect {Chess.com_username}`. The bot will send you a one-time verification code in your DM.\nCopy the one-time verification code that is only visible to you.",
+            inline=False
+        )
+        localembed.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1229369078171435058/Untitled991.png?ex=662f6e2c&is=661cf92c&hm=dfa5b45b4c38aa64104a0288f7b97ec05dbc77aa74f6791e3fcd8914c385aa6e&")
+
+        localembed2 = discord.Embed(
+            title=f"",
+            description=f"",
+            color=discord.Color.random()
+        )
+        localembed2.add_field(
+            name="Step 2:",
+            value="Open Chess.com and login, and go to settings of your account.",
+            inline=False
+        )
+        localembed2.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1228938134511812618/Untitled984.png?ex=662ddcd3&is=661b67d3&hm=e298c9ce5081c374b33d8b4f4de638914648ec034b3474cf515d6a611acee0d2&")
+
+        localembed3 = discord.Embed(
+            title=f"",
+            description=f"",
+            color=discord.Color.random()
+        )
+        localembed3.add_field(
+            name="Step 3:",
+            value="Paste the verification code into the `Location` field and save the settings.",
+            inline=False
+        )
+        localembed3.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1228938135359197277/Untitled985.png?ex=662ddcd4&is=661b67d4&hm=84f3c856300bd143d0e67d692ff5c4626f53b438e7a71b503a8714ac13112284&")
+
+        localembed4 = discord.Embed(
+            title=f"",
+            description=f"",
+            color=discord.Color.random()
+        )
+        localembed4.add_field(
+            name="Step 4:",
+            value="Use `/verify verify` to finish the verifying procedure. You may remove the code in your `Location` field after verifying your account.",
+            inline=False
+        )
+        localembed4.add_field(
+            name="What to do if I lost the verification code?",
+            value="Use `/verify newcode` to generate a new one-time verification code. You may use the new code to verify your account.",
+            inline=False
+        )
+        localembed4.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1229369994542972978/image.png?ex=662f6f07&is=661cfa07&hm=829cfd77d7f7dcb313d74d1743148513d970326c1e356a0b0fedd6b988388deb&")
+
+        localembed5 = discord.Embed(
+            title=f"Extra!",
+            description=f"Verified or not verified?",
+            color=discord.Color.random()
+        )
+        localembed5.add_field(
+            name="How do I know if a user is verified with their Chess.com account?",
+            value="Verified users has a \"verified\" badge (<:verified:1228974564630069380>) next to their username, while unverified users has a \"unverified\" badge (<:unverified:1228975990932508692>) visible in their profile.",
+            inline=False
+        )
+        localembed5.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1229378408266338364/Untitled995.png?ex=662f76dd&is=661d01dd&hm=129cc20e5daf4b46ce28787e0dc07b066c6011f3c6cd42e480e92b48c81d9379&")
+
+        pages = [
+            Page(embeds=[localembed]),
+            Page(embeds=[localembed2]),
+            Page(embeds=[localembed3]),
+            Page(embeds=[localembed4]),
+            Page(embeds=[localembed5])
+        ]
+        paginator = Paginator(pages=pages)
+
+        return await paginator.respond(ctx.interaction, ephemeral=True)
+
+    elif action == "verify":
+        try:
+            un = cc_user[ids]["uname"]
+            verified = cc_user[ids]["verified"]
+            vc = cc_user[ids]["verification_code"]
+            pf = cc.get_player_profile(un).json
+
+            if verified == "No":
+                try:
+                    if pf["player"]["location"] == vc:
+                        cc_user[ids]["verified"] = "Yes"
+                        cc_user[ids]["verification_code"] = "**Expired**"
+                        save(cc_user)
+
+                        localembed = discord.Embed(
+                            title=f"Account `{un}` has been verified successfully!",
+                            description=f"You may now remove the verification code from your Chess.com profile.",
+                            color=discord.Color.random()
+                        )
+                    else:
+                        cc_user[ids]["verification_code"] = "**Expired**"
+                        save(cc_user)
+
+                        localembed = discord.Embed(
+                            title=f"Verification failed!",
+                            description=f"Error: Verification code mismatched.",
+                            color=discord.Color.random()
+                        )
+                        localembed.add_field(name="How do I fix this?", value="You should get a new one-time verification code with `/verify newcode` and try again.")
+                        localembed.set_footer(text="Old verification code expired!")
+                except discord.errors.ApplicationCommandInvokeError:
+                    cc_user[ids]["verification_code"] = "**Expired**"
+                    save(cc_user)
+
+                    localembed = discord.Embed(
+                        title=f"Verification failed!",
+                        description=f"Error: No verification code detected.",
+                        color=discord.Color.random()
+                    )
+                    localembed.add_field(name="How do I fix this?", value="You should get a new one-time verification code with `/verify newcode` and try again.")
+                    localembed.set_footer(text="Old verification code expired!")
+            else:
+                localembed = discord.Embed(
+                    title=f"Account `{un}` is already verified.",
+                    description=f"You do not need to verify twice.",
+                    color=discord.Color.random()
+                )
+        except:
+            localembed = discord.Embed(
+                title=f"You do not have a connected account.",
+                description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
+                color=discord.Color.random()
+            )
+
+    elif action == "newcode":
+        try:
+            verified = cc_user[ids]["verified"]
+
+            if verified == "No":
+                username = cc_user[ids]["uname"]
+                pf = cc.get_player_profile(username).json
+                vcode = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+                cc_user[ids]["verification_code"] = vcode
+                save(cc_user)
+
+                user = await client.fetch_user(ctx.author.id)
+                localembed0 = discord.Embed(
+                    title=f"Requested new verification code.",
+                    description=f"Your new one-time verification code is ||`{vcode}`||. Do not give this information to anyone.",
+                    color=discord.Color.random()
+                )
+
+                await user.send(embed=localembed0)
+
+                localembed = discord.Embed(
+                    title=f"Requested new verification code.",
+                    description=f"",
+                    color=discord.Color.random()
+                )
+                localembed.add_field(
+                    name=f"Your new one-time verification code has been sent to DM!",
+                    value="Please check your DM list."
+                )
+
+                return await ctx.respond(embed=localembed)
+            else:
+                localembed = discord.Embed(
+                    title=f"Account `{un}` is already verified.",
+                    description=f"You do not need a new verification code.",
+                    color=discord.Color.random()
+                )
+        except:
+            localembed = discord.Embed(
+                title=f"You do not have a connected account.",
+                description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
+                color=discord.Color.random()
+            )
+
+    return await ctx.respond(embed=localembed, ephemeral=True)
 
 @client.slash_command(
     name="profile",
     description="View the profile of a user."
 )
-@option(name="user", description="The user you want to view", type=discord.User, default=None)
-async def profile(ctx: ApplicationContext, user: discord.User = None):
-    if user == None: user = ctx.author
-    localembed = discord.Embed(
-        title=f"{user.display_name}'s profile",
-        description=f"{user.name}",
-        color=discord.Color.random()  # Removed user.accent_color from embed color because PyCord can't behave :(
-    )
-    localembed.set_thumbnail(url=user.display_avatar)
-    localembed.add_field(name="Profile Picture URL", value=f"[Click to view]({user.display_avatar})")
-    localembed.add_field(name="Joined Discord at", value=f"{user.created_at.strftime('%d %B, %Y')}")
-    localembed.add_field(name="User id", value=user.id)
-    localembed.add_field(name="Rating", value=f"{str(parse_rating(user.id))} stars")
-    if profile_metadata[str(user.id)]["profile_banner_url"] is not None:
-        localembed.set_image(url=profile_metadata[str(user.id)]["profile_banner_url"])
-    await ctx.respond(embed=localembed)
+@option(name="user", description="Specify a user.", type=discord.User, default=None)
+async def profile(ctx: ApplicationContext, user: discord.User):
+    # await ctx.defer(invisible=True)
+    if user == None:
+        user = str(ctx.author.id)
+    else:
+        user = str(user.id)
+
+    try:
+        member = cc_user[user]["uname"]
+        uinfo = cc.get_player_profile(member).json
+        ustats = cc.get_player_stats(member).json
+    except:
+        localembed = discord.Embed(
+            title=f"You do not have a connected account.",
+            description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
+            color=discord.Color.random()
+        )
+
+        return await ctx.respond(embed=localembed)
+
+    status = uinfo["player"]["status"]
+    uname = uinfo["player"]["username"]
+    since = uinfo["player"]["joined"]
+    lastonline = uinfo["player"]["last_online"]
+    followers = uinfo["player"]["followers"]
+    uid = uinfo["player"]["player_id"]
+
+    try:
+        av = uinfo["player"]["avatar"]
+    except:
+        av = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQTlCxyf01tNZOzuEuqFgstHMj2EMz8uOjJtrC159vgmg&s"
+
+    try:
+        dailyelo = ustats["stats"]["chess_daily"]["last"]["rating"]
+        dailybest = ustats["stats"]["chess_daily"]["best"]["rating"]
+    except:
+        dailyelo = "*No record*"
+        dailybest = 0
+
+    try:
+        rapidelo = ustats["stats"]["chess_rapid"]["last"]["rating"]
+        rapidbest = ustats["stats"]["chess_rapid"]["best"]["rating"]
+    except:
+        rapidelo = "*No record*"
+        rapidbest = 0
+
+    try:
+        blitzelo = ustats["stats"]["chess_blitz"]["last"]["rating"]
+        blitzbest = ustats["stats"]["chess_blitz"]["best"]["rating"]
+    except:
+        blitzelo = "*No record*"
+        blitzbest = 0
+
+    try:
+        bulletelo = ustats["stats"]["chess_bullet"]["last"]["rating"]
+        bulletbest = ustats["stats"]["chess_bullet"]["best"]["rating"]
+    except:
+        bulletelo = "*No record*"
+        bulletbest = 0
+
+    try:
+        puzzlepeak = ustats["stats"]["tactics"]["highest"]["rating"]
+    except:
+        puzzlepeak = "*No record*"
+
+    try:
+        puzzlerush = ustats["stats"]["puzzle_rush"]["best"]["score"]
+    except:
+        puzzlerush = "*No record*"
+
+    if cc_user[user]["flair"] == "None":
+        flair = "<:placeholder:1229006396150779904>"
+    else:
+        flair = cc_user[user]["flair"]
+
+    try:
+        if cc_user[user]["verified"] == "Yes":
+            localembed = discord.Embed(
+                title=f"{uinfo['player']['name']} ({uname}) <:verified:1228974564630069380> {flair}",
+                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                color=discord.Color.random()
+            )
+        else:
+            localembed = discord.Embed(
+                title=f"{uinfo['player']['name']} ({uname}) <:unverified:1228975990932508692> {flair}",
+                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                color=discord.Color.random()
+            )
+    except:
+        if cc_user[user]["verified"] == "Yes":
+            localembed = discord.Embed(
+                title=f"{uname} <:verified:1228974564630069380> {flair}",
+                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                color=discord.Color.random()
+            )
+        else:
+            localembed = discord.Embed(
+                title=f"{uname} <:unverified:1228975990932508692> {flair}",
+                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                color=discord.Color.random()
+            )
+
+    localembed.set_thumbnail(url=av)
+    localembed.add_field(name="<:followers:1228979708197081179> Followers:", value=followers)
+    localembed.add_field(name="<:daily:1132115979124617297> Daily:", value=f"{dailyelo} ({dailybest} peak)")
+    localembed.add_field(name="<:rapid:1132112926090743940> Rapid:", value=f"{rapidelo} ({rapidbest} peak)")
+    localembed.add_field(name="<:blitz:1132113580788031618> Blitz:", value=f"{blitzelo} ({blitzbest} peak)")
+    localembed.add_field(name="<:bullet:1132114505262956606> Bullet:", value=f"{bulletelo} ({bulletbest} peak)")
+    localembed.add_field(name="<:puzzle:1228978258608132237> Puzzle peak rating:", value=f"{puzzlepeak}")
+    localembed.add_field(name="<:puzzlerush:1228972358920962188> Puzzle rush best attempt:", value=f"{puzzlerush}")
+    localembed.set_footer(text=f"User id: {uid}")
+
+    return await ctx.respond(embed=localembed)
 
 @client.slash_command(
-    name="rating",
-    description="View a user's rating."
+    name="setpremiumflair",
+    description="Display a premium flair on profile."
 )
-@option(name="user", description="The user you want to view", type=discord.User, default=None)
-async def rating(ctx: ApplicationContext, user: discord.User = None):
-    if user == None: user = ctx.author
-    localembed = discord.Embed(
-        description=f":star: {user.name} has been rated {str(parse_rating(user.id))} stars",
-        color=color
-    )
-    await ctx.respond(embed=localembed)
+@option(name="flair_id", description="ID of the flair.", type=str, default=None)
+async def setpremiumflair(ctx: ApplicationContext, flair_id: str = None):
+    # await ctx.defer(invisible=True)
+    try:
+        uname = cc_user[str(ctx.author.id)]["uname"]
+        uinfo = cc.get_player_profile(uname).json
 
+        if cc_user[str(ctx.author.id)]["premium"] == "basic":
+            localembed = discord.Embed(
+                title=f"Oops! You do not have Chess.com premium!",
+                description=f"Only Chess.com premium users can set premium flairs.",
+                color=discord.Color.random()
+            )
+            localembed.set_footer(text="Not advertising Chess.com premium though, you can still set basic flairs with `/setbasicflair {flair_id}`.")
+        else:
+            if flair_id == None:
+                cc_user[str(ctx.author.id)]["flair"] = "<:placeholder:1229006396150779904>"
+            else:
+                cc_user[str(ctx.author.id)]["flair"] = flairs[int(flair_id)]
+            save(cc_user)
+
+            try:
+                localembed = discord.Embed(
+                    title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
+                    description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                    color=discord.Color.random()
+                )
+            except:
+                localembed = discord.Embed(
+                    title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
+                    description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                    color=discord.Color.random()
+                )
+    except:
+        localembed = discord.Embed(
+            title=f"You do not have a connected account.",
+            description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
+            color=discord.Color.random()
+        )
+
+    return await ctx.respond(embed=localembed)
+
+@client.slash_command(
+    name="flairlist",
+    description="Get the list of flairs available."
+)
+async def setflair(ctx: ApplicationContext):
+    # await ctx.defer(invisible=True)
+    localembed1 = discord.Embed(
+        title="Premium flairs: Page 1",
+        description=f"List of flairs that can be set by premium Chess.com users.",
+        color=discord.Color.random()
+    )
+    localembed2 = discord.Embed(
+        title="Premium flairs: Page 2",
+        description=f"List of flairs that can be set by premium Chess.com users.",
+        color=discord.Color.random()
+    )
+    localembed3 = discord.Embed(
+        title="Premium flairs: Page 3",
+        description=f"List of flairs that can be set by premium Chess.com users.",
+        color=discord.Color.random()
+    )
+
+    for i in range(0, 9):
+        localembed1.add_field(name=flairs[i], value=f"(ID: {i})")
+
+    for i in range(9, 18):
+        localembed2.add_field(name=flairs[i], value=f"(ID: {i})")
+
+    for i in range(18, 27):
+        localembed3.add_field(name=flairs[i], value=f"(ID: {i})")
+
+    localembed1.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
+    localembed2.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
+    localembed3.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
+
+    pages = [
+        Page(embeds=[localembed1]),
+        Page(embeds=[localembed2]),
+        Page(embeds=[localembed3])
+    ]
+    paginator = Paginator(pages=pages)
+
+    return await paginator.respond(ctx.interaction)
+
+
+
+
+"""
 # User Profile Customization Commands
 # customization = discord.commands.SlashCommandGroup("customize", "Commands used to customize the user's /profile command.")  Disable because command doesn't sync with this
 
@@ -139,7 +581,7 @@ async def rating(ctx: ApplicationContext, user: discord.User = None):
 )
 @option(name="image_url", description="The url of your new profile banner (leave blank to disable)", type=str, default=None)
 async def banner(ctx: ApplicationContext, image_url: str = None):
-    """Set a banner to display on your /profile command! (url only)"""
+    # Set a banner to display on your /profile command! (url only)
     if (image_url is not None) and ("https://" not in image_url):
         return await ctx.respond("Your custom banner url must contain `https://`!", ephemeral=True)
     profile_metadata[str(ctx.author.id)]["profile_banner_url"] = image_url
@@ -172,12 +614,14 @@ async def rating(ctx: ApplicationContext, user: discord.User):
     )
     await ctx.respond(embed=localembed)
 
+"""
+
 # Bot Initialization
 try:
     with open("config/auth.json", 'r', encoding="utf-8") as f: auth_config = json.load(f)
     if auth_config["deploy_mode"] == "replit": client.run(os.getenv["TOKEN"])
     if auth_config["deploy_mode"] == "local":
-        if auth_config["TOKEN"] == "": 
+        if auth_config["TOKEN"] == "":
             print("Unable to deploy client: You have not added a bot token yet. Add one first in 'TOKEN' in 'config/auth.json'.")
             print("You can get a bot token from https://discord.com/developers by creating a new application.")
             raise SystemExit
