@@ -357,7 +357,7 @@ async def verify(ctx: ApplicationContext, action: str):
                 color=discord.Color.random()
             )
 
-    return await ctx.respond(embed=localembed, ephemeral=True)
+    return await ctx.respond(embed=localembed)
 
 @client.slash_command(
     name="profile",
