@@ -1,9 +1,4 @@
-# RateBot
-A simple user rating bot for Discord.
-
-# To-do
-- [x] Publish the bot
-- [ ] Completely add and implement user profile metadata (for custom banners and likewise)
-- [ ] Redesign the README.md completely and make it look nice
+# Blue "Water elemental chess bot"
+A Discord bot that uses Chess.com API. (In development)
 
 <h6>Want to contribute to development? Feel free to make an issue or a pull request :)</h6>
