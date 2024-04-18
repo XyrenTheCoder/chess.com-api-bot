@@ -4,11 +4,22 @@ import json
 import os
 import chessdotcom
 import random, string
+
 from time import strftime
 from typing import Union
 from discord import option, ApplicationContext
 from discord.ext import commands
 from discord.ext.pages import Paginator, Page
+
+
+# Load databases
+print("[client/startup] Populating databases...")
+with open("db/chesscom_users.json", 'r') as f:
+    cc_user = json.load(f)
+
+with open("config/commands.json", 'r') as f:
+    commands_db = json.load(f)
+
 
 # Global variables
 client = discord.Bot()
@@ -46,28 +57,42 @@ flairs = [
     "<:star5:1229042137295749120>",
     "<:star6:1229042177129185341>",
     "<:star7:1229042203335069706>",
-    "<:star8:1229042224113778800>"
+    "<:star8:1229042224113778800>",
+    "<:blunder_emote:1229437688537419806>",
+    "<:brilliant_emote:1229437692056567848>",
+    "<:knight_fork:1229437621244133427>",
+    "<:checkmate_king:1230085805201162262>",
+
+    "<:wp:1229437684066553916>",
+    "<:wn:1229437675660906547>",
+    "<:wb:1229437672439808130>",
+    "<:wr:1229437679263940772>",
+    "<:wq:1229437668245639322>",
+    "<:wk:1229437664491602001>",
+    "<:bp:1229437681566613636>",
+    "<:bn:1229437674121592894>",
+    "<:bb:1229437670652907561>",
+    "<:br:1229437677464453220>",
+    "<:bq:1229437666022658242>",
+    "<:bk:1229437662289727589>",
 ]
 
-# Check for Databases and Autogenerate them
+
+# Check for databases and autogenerate them
 if not os.path.isdir("db"):
     os.mkdir("db")
+
 if not os.path.isfile("db/chesscom_users.json"):
     with open("db/chesscom_users.json", 'x', encoding="utf-8") as f:
         json.dump({}, f)
 
-# Pre-initialization Commands
+
+# Pre-initialization
 def save(data: str) -> int:
-    with open(f"db/chesscom_users.json", 'w+') as f:
+    with open("db/chesscom_users.json", 'w+') as f:
         json.dump(data, f, indent=4)
     return 0
 
-# Load Databases
-print("[client/startup] Populating databases...")
-with open("db/chesscom_users.json", 'r') as f:
-    cc_user = json.load(f)
-with open("config/commands.json", 'r') as f:
-    commands_db = json.load(f)
 
 # Events
 @client.event
@@ -78,18 +103,33 @@ async def on_ready():
 
 @client.event
 async def on_message(ctx: discord.Interaction):
-    # if str(ctx.author.id) not in user_ratings: user_ratings[str(ctx.author.id)] = {}
-    # if str(ctx.author.id) not in profile_metadata: profile_metadata[str(ctx.author.id)] = {"profile_banner_url": None}
-    # save()
     ...
 
-# Slash Commands
+
+# Admin commands
+@client.slash_command(
+    name="reload",
+    description="Reload databases."
+)
+async def reload(ctx: ApplicationContext):
+    global cc_user
+    with open("db/chesscom_users.json", 'r', encoding="utf-8") as f:
+        cc_user = json.load(f)
+    if ctx.author.id == 706697300872921088:
+        await ctx.respond("Reloaded database", ephemeral=True)
+        return cc_user
+    else:
+        await ctx.respond("You do not have the permission to do this.", ephemeral=True)
+
+
+# Slash commands
 @client.slash_command(
     name="help",
     description="Need some help?"
 )
 async def _help(ctx: ApplicationContext):
     parsed_desc = ""
+
     for command in commands_db:
         parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command} {commands_db[command]['args']}"
     localembed = discord.Embed(
@@ -98,32 +138,81 @@ async def _help(ctx: ApplicationContext):
         color=discord.Color.random()
     )
     localembed.set_footer(text="`< >`: Required, else optional.")
+
     await ctx.respond(embed=localembed)
 
-"""
+
 @client.slash_command(
-    name="rate",
-    description="Rate a user of your choice."
+    name="code",
+    description="."
 )
-@option(name="user", description="The person you want to rate", type=discord.User)
-@option(name="rating", description="The rating you want to give to the user", type=str, choices=["1 star", "2 stars", "3 stars", "4 stars", "5 stars"])
-async def rate(ctx: ApplicationContext, user: discord.User, rating: str):
-    if str(ctx.author.id) not in user_ratings: user_ratings[str(ctx.author.id)] = {}
-    if rating not in ["1 star", "2 stars", "3 stars", "4 stars", "5 stars"]: return
-    if rating == "1 star": rating_int = 1
-    elif rating == "2 stars": rating_int = 2
-    elif rating == "3 stars": rating_int = 3
-    elif rating == "4 stars": rating_int = 4
-    elif rating == "5 stars": rating_int = 5
-    user_ratings[str(user.id)][str(ctx.author.id)] = rating_int
-    save()
-    localembed = discord.Embed(
-        title=":star: Rating Submitted!",
-        description=f"You have rated {user.name} {str(rating_int)} {'star' if rating_int == 1 else 'stars'}",
-        color=discord.Color.green()
-    )
-    await ctx.respond(embed=localembed, ephemeral=True)
-"""
+@option(name="code", description="Enter code.", type=str)
+async def code(ctx: ApplicationContext, code: str):
+    try:
+        uname = cc_user[str(ctx.author.id)]["uname"]
+        uinfo = cc.get_player_profile(uname).json
+
+        if code == "IBRS92DVT":
+            sflair = "<:stockfish_big:1230122081945915423>"
+        elif code == "N5LVC5JC2":
+            sflair = "<:gothamknights:1230122050228850811>"
+        elif code == "7FWOX8STE":
+            sflair = "<:ethereal:1230122168801562655>"
+        elif code == "3PWQLLUSF":
+            sflair = "<:komodo:1230122124547461140>"
+        elif code == "3JJWF3A03":
+            sflair = "<:komododragon:1230122147746287656>"
+        elif code == "ICGM891PL":
+            sflair = "<:torch:1230122102951120918>"
+        else:
+            localembed = discord.Embed(
+                title=f"Failed!",
+                description=f"Error: Code does not exist.",
+                color=discord.Color.random()
+            )
+
+            return await ctx.respond(embed=localembed)
+
+        if cc_user[str(ctx.author.id)]["flair"] == sflair:
+            try:
+                localembed = discord.Embed(
+                    title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
+                    description="You have already claimed this hidden flair!",
+                    color=discord.Color.random()
+                )
+            except:
+                localembed = discord.Embed(
+                    title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
+                    description="You have already claimed this hidden flair!",
+                    color=discord.Color.random()
+                )
+
+        else:
+            cc_user[str(ctx.author.id)]["flair"] = sflair
+            save(cc_user)
+
+            try:
+                localembed = discord.Embed(
+                    title="Wow, you found this hidden flair!",
+                    description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                    color=discord.Color.random()
+                )
+            except:
+                localembed = discord.Embed(
+                    title="Wow, you found this hidden flair!",
+                    description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                    color=discord.Color.random()
+                )
+
+    except:
+        localembed = discord.Embed(
+            title="You do not have a connected account.",
+            description="If this is inaccurate, please report this bug to **xyrenchess**.",
+            color=discord.Color.random()
+        )
+
+    return await ctx.respond(embed=localembed)
+
 
 @client.slash_command(
     name="connect",
@@ -155,23 +244,26 @@ async def connect(ctx: ApplicationContext, username: str):
 
         localembed = discord.Embed(
             title=f"User `{username}` is being connected to **{ctx.author.name}**.",
-            description=f"",
+            description="",
             color=discord.Color.random()
         )
         localembed.add_field(
-            name=f"Your one-time verification code has been sent to DM.",
+            name="Your one-time verification code has been sent to DM.",
             value="Please use `/verify verify` to verify your connected account."
         )
         localembed.set_footer(text="Do not know what to do? Use `/verify help` for the guide to verify your account.")
+
         return await ctx.respond(embed=localembed)
+
     except cc.ChessDotComError:
         localembed = discord.Embed(
             title=f"User `{username}` does not exist or account has been closed.",
-            description=f"If this is inaccurate, please report this bug to *xyrenchess*.",
+            description="If this is inaccurate, please report this bug to **xyrenchess**.",
             color=discord.Color.random()
         )
 
         return await ctx.respond(embed=localembed)
+
 
 @client.slash_command(
     name="verify",
@@ -184,8 +276,8 @@ async def verify(ctx: ApplicationContext, action: str):
 
     if action == "help":
         localembed = discord.Embed(
-            title=f"Verifying using one-time verification code provided when connecting Chess.com account.",
-            description=f"To verify your Chess.com account, follow the instructions below.",
+            title="Verifying using one-time verification code provided when connecting Chess.com account.",
+            description="To verify your Chess.com account, follow the instructions below.",
             color=discord.Color.random()
         )
         localembed.add_field(
@@ -196,8 +288,6 @@ async def verify(ctx: ApplicationContext, action: str):
         localembed.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1229369078171435058/Untitled991.png?ex=662f6e2c&is=661cf92c&hm=dfa5b45b4c38aa64104a0288f7b97ec05dbc77aa74f6791e3fcd8914c385aa6e&")
 
         localembed2 = discord.Embed(
-            title=f"",
-            description=f"",
             color=discord.Color.random()
         )
         localembed2.add_field(
@@ -208,8 +298,6 @@ async def verify(ctx: ApplicationContext, action: str):
         localembed2.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1228938134511812618/Untitled984.png?ex=662ddcd3&is=661b67d3&hm=e298c9ce5081c374b33d8b4f4de638914648ec034b3474cf515d6a611acee0d2&")
 
         localembed3 = discord.Embed(
-            title=f"",
-            description=f"",
             color=discord.Color.random()
         )
         localembed3.add_field(
@@ -220,8 +308,6 @@ async def verify(ctx: ApplicationContext, action: str):
         localembed3.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1228938135359197277/Untitled985.png?ex=662ddcd4&is=661b67d4&hm=84f3c856300bd143d0e67d692ff5c4626f53b438e7a71b503a8714ac13112284&")
 
         localembed4 = discord.Embed(
-            title=f"",
-            description=f"",
             color=discord.Color.random()
         )
         localembed4.add_field(
@@ -237,8 +323,8 @@ async def verify(ctx: ApplicationContext, action: str):
         localembed4.set_image(url="https://cdn.discordapp.com/attachments/915526429293285466/1229369994542972978/image.png?ex=662f6f07&is=661cfa07&hm=829cfd77d7f7dcb313d74d1743148513d970326c1e356a0b0fedd6b988388deb&")
 
         localembed5 = discord.Embed(
-            title=f"Extra!",
-            description=f"Verified or not verified?",
+            title="Extra!",
+            description="Verified or not verified?",
             color=discord.Color.random()
         )
         localembed5.add_field(
@@ -275,41 +361,45 @@ async def verify(ctx: ApplicationContext, action: str):
 
                         localembed = discord.Embed(
                             title=f"Account `{un}` has been verified successfully!",
-                            description=f"You may now remove the verification code from your Chess.com profile.",
+                            description="You may now remove the verification code from your Chess.com profile.",
                             color=discord.Color.random()
                         )
+
                     else:
                         cc_user[ids]["verification_code"] = "**Expired**"
                         save(cc_user)
 
                         localembed = discord.Embed(
-                            title=f"Verification failed!",
-                            description=f"Error: Verification code mismatched.",
+                            title="Verification failed!",
+                            description="Error: Verification code mismatched.",
                             color=discord.Color.random()
                         )
                         localembed.add_field(name="How do I fix this?", value="You should get a new one-time verification code with `/verify newcode` and try again.")
                         localembed.set_footer(text="Old verification code expired!")
+
                 except discord.errors.ApplicationCommandInvokeError:
                     cc_user[ids]["verification_code"] = "**Expired**"
                     save(cc_user)
 
                     localembed = discord.Embed(
-                        title=f"Verification failed!",
-                        description=f"Error: No verification code detected.",
+                        title="Verification failed!",
+                        description="Error: No verification code detected.",
                         color=discord.Color.random()
                     )
                     localembed.add_field(name="How do I fix this?", value="You should get a new one-time verification code with `/verify newcode` and try again.")
                     localembed.set_footer(text="Old verification code expired!")
+
             else:
                 localembed = discord.Embed(
                     title=f"Account `{un}` is already verified.",
-                    description=f"You do not need to verify twice.",
+                    description="You do not need to verify twice.",
                     color=discord.Color.random()
                 )
+
         except:
             localembed = discord.Embed(
-                title=f"You do not have a connected account.",
-                description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
+                title="You do not have a connected account.",
+                description="If this is inaccurate, please report this bug to **xyrenchess**.",
                 color=discord.Color.random()
             )
 
@@ -326,7 +416,7 @@ async def verify(ctx: ApplicationContext, action: str):
 
                 user = await client.fetch_user(ctx.author.id)
                 localembed0 = discord.Embed(
-                    title=f"Requested new verification code.",
+                    title="Requested new verification code.",
                     description=f"Your new one-time verification code is ||`{vcode}`||. Do not give this information to anyone.",
                     color=discord.Color.random()
                 )
@@ -334,30 +424,32 @@ async def verify(ctx: ApplicationContext, action: str):
                 await user.send(embed=localembed0)
 
                 localembed = discord.Embed(
-                    title=f"Requested new verification code.",
-                    description=f"",
+                    title="Requested new verification code.",
                     color=discord.Color.random()
                 )
                 localembed.add_field(
-                    name=f"Your new one-time verification code has been sent to DM!",
+                    name="Your new one-time verification code has been sent to DM!",
                     value="Please check your DM list."
                 )
 
                 return await ctx.respond(embed=localembed)
+
             else:
                 localembed = discord.Embed(
                     title=f"Account `{un}` is already verified.",
-                    description=f"You do not need a new verification code.",
+                    description="You do not need a new verification code.",
                     color=discord.Color.random()
                 )
+
         except:
             localembed = discord.Embed(
-                title=f"You do not have a connected account.",
-                description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
+                title="You do not have a connected account.",
+                description="If this is inaccurate, please report this bug to **xyrenchess**.",
                 color=discord.Color.random()
             )
 
     return await ctx.respond(embed=localembed)
+
 
 @client.slash_command(
     name="profile",
@@ -375,16 +467,17 @@ async def profile(ctx: ApplicationContext, user: discord.User):
         member = cc_user[user]["uname"]
         uinfo = cc.get_player_profile(member).json
         ustats = cc.get_player_stats(member).json
+
     except:
         localembed = discord.Embed(
-            title=f"You do not have a connected account.",
-            description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
+            title="You do not have a connected account.",
+            description="If this is inaccurate, please report this bug to **xyrenchess**.",
             color=discord.Color.random()
         )
 
         return await ctx.respond(embed=localembed)
 
-    status = uinfo["player"]["status"]
+    # status = uinfo["player"]["status"]
     uname = uinfo["player"]["username"]
     since = uinfo["player"]["joined"]
     lastonline = uinfo["player"]["last_online"]
@@ -446,12 +539,14 @@ async def profile(ctx: ApplicationContext, user: discord.User):
                 description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
                 color=discord.Color.random()
             )
+
         else:
             localembed = discord.Embed(
                 title=f"{uinfo['player']['name']} ({uname}) <:unverified:1228975990932508692> {flair}",
                 description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
                 color=discord.Color.random()
             )
+
     except:
         if cc_user[user]["verified"] == "Yes":
             localembed = discord.Embed(
@@ -459,6 +554,7 @@ async def profile(ctx: ApplicationContext, user: discord.User):
                 description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
                 color=discord.Color.random()
             )
+
         else:
             localembed = discord.Embed(
                 title=f"{uname} <:unverified:1228975990932508692> {flair}",
@@ -478,95 +574,176 @@ async def profile(ctx: ApplicationContext, user: discord.User):
 
     return await ctx.respond(embed=localembed)
 
-@client.slash_command(
-    name="setpremiumflair",
-    description="Display a premium flair on profile."
-)
-@option(name="flair_id", description="ID of the flair.", type=str, default=None)
-async def setpremiumflair(ctx: ApplicationContext, flair_id: str = None):
-    # await ctx.defer(invisible=True)
-    try:
-        uname = cc_user[str(ctx.author.id)]["uname"]
-        uinfo = cc.get_player_profile(uname).json
-
-        if cc_user[str(ctx.author.id)]["premium"] == "basic":
-            localembed = discord.Embed(
-                title=f"Oops! You do not have Chess.com premium!",
-                description=f"Only Chess.com premium users can set premium flairs.",
-                color=discord.Color.random()
-            )
-            localembed.set_footer(text="Not advertising Chess.com premium though, you can still set basic flairs with `/setbasicflair {flair_id}`.")
-        else:
-            if flair_id == None:
-                cc_user[str(ctx.author.id)]["flair"] = "<:placeholder:1229006396150779904>"
-            else:
-                cc_user[str(ctx.author.id)]["flair"] = flairs[int(flair_id)]
-            save(cc_user)
-
-            try:
-                localembed = discord.Embed(
-                    title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
-                    description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
-                    color=discord.Color.random()
-                )
-            except:
-                localembed = discord.Embed(
-                    title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
-                    description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
-                    color=discord.Color.random()
-                )
-    except:
-        localembed = discord.Embed(
-            title=f"You do not have a connected account.",
-            description=f"If this is inaccurate, please report this bug to **xyrenchess**.",
-            color=discord.Color.random()
-        )
-
-    return await ctx.respond(embed=localembed)
 
 @client.slash_command(
     name="flairlist",
     description="Get the list of flairs available."
 )
-async def setflair(ctx: ApplicationContext):
+async def flairlist(ctx: ApplicationContext):
     # await ctx.defer(invisible=True)
     localembed1 = discord.Embed(
         title="Premium flairs: Page 1",
-        description=f"List of flairs that can be set by premium Chess.com users.",
+        description="List of flairs that can be set by premium Chess.com users.",
         color=discord.Color.random()
     )
     localembed2 = discord.Embed(
         title="Premium flairs: Page 2",
-        description=f"List of flairs that can be set by premium Chess.com users.",
-        color=discord.Color.random()
-    )
-    localembed3 = discord.Embed(
-        title="Premium flairs: Page 3",
-        description=f"List of flairs that can be set by premium Chess.com users.",
+        description="List of flairs that can be set by premium Chess.com users.",
         color=discord.Color.random()
     )
 
-    for i in range(0, 9):
+    localb1 = discord.Embed(
+        title="Basic flairs: Page 1",
+        description="List of flairs that can be set by both basic and premium Chess.com users.",
+        color=discord.Color.random()
+    )
+
+    for i in range(0, 25):
         localembed1.add_field(name=flairs[i], value=f"(ID: {i})")
 
-    for i in range(9, 18):
+    for i in range(25, 31):
         localembed2.add_field(name=flairs[i], value=f"(ID: {i})")
 
-    for i in range(18, 27):
-        localembed3.add_field(name=flairs[i], value=f"(ID: {i})")
+    for i in range(31, 43):
+        localb1.add_field(name=flairs[i], value=f"(ID: {i})")
+
+    # for i in range(18, 27):
+    #     localembed3.add_field(name=pflairs[i], value=f"(ID: {i})")
+    # for i in range(27, 30):
+    #     localembed3.add_field(name=pflairs[i], value=f"(ID: {i})")
 
     localembed1.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
     localembed2.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
-    localembed3.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
+    localb1.set_footer(text="Use `/setbasicflair {flair_id}` to display your favourite flair on profile!")
 
     pages = [
         Page(embeds=[localembed1]),
         Page(embeds=[localembed2]),
-        Page(embeds=[localembed3])
+        Page(embeds=[localb1]),
     ]
     paginator = Paginator(pages=pages)
 
     return await paginator.respond(ctx.interaction)
+
+
+@client.slash_command(
+    name="setflair",
+    description="Display a flair on profile."
+)
+@option(name="flair_id", description="ID of the flair.", type=int, default=None)
+async def setflair(ctx: ApplicationContext, flair_id: int = None):
+    # await ctx.defer(invisible=True)
+    try:
+        uname = cc_user[str(ctx.author.id)]["uname"]
+        uinfo = cc.get_player_profile(uname).json
+
+        if flair_id == None:
+            if cc_user[str(ctx.author.id)]["flair"] == "<:placeholder:1229006396150779904>":
+                try:
+                    localembed = discord.Embed(
+                        title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
+                        description="You do not have a flair to remove lmao.",
+                        color=discord.Color.random()
+                    )
+                except:
+                    localembed = discord.Embed(
+                        title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
+                        description="You do not have a flair to remove lmao.",
+                        color=discord.Color.random()
+                    )
+
+            else:
+                cc_user[str(ctx.author.id)]["flair"] = "<:placeholder:1229006396150779904>"
+                save(cc_user)
+
+                try:
+                    localembed = discord.Embed(
+                        title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
+                        description="Your flair has been removed!",
+                        color=discord.Color.random()
+                    )
+                except:
+                    localembed = discord.Embed(
+                        title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
+                        description="Your flair has been removed!",
+                        color=discord.Color.random()
+                    )
+
+        else:
+            if cc_user[str(ctx.author.id)]["flair"] == flairs[flair_id]:
+                try:
+                    localembed = discord.Embed(
+                        title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
+                        description="Interesting, you are trying to display the same flair that you are currently displaying.",
+                        color=discord.Color.random()
+                    )
+                except:
+                    localembed = discord.Embed(
+                        title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
+                        description="Interesting, you are trying to display the same flair that you are currently displaying.",
+                        color=discord.Color.random()
+                    )
+
+            else:
+                if flair_id < 31: # premium flairs
+                    if cc_user[str(ctx.author.id)]["premium"] == "basic":
+                        localembed = discord.Embed(
+                            title="Oops! You do not have Chess.com premium to use premium flairs!",
+                            description="You can still display basic flairs.",
+                            color=discord.Color.random()
+                        )
+                        localembed.set_footer(text="Not advertising Chess.com premium though.")
+
+                    else:
+                        cc_user[str(ctx.author.id)]["flair"] = flairs[int(flair_id)]
+                        save(cc_user)
+
+                        try:
+                            localembed = discord.Embed(
+                                title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
+                                description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                                color=discord.Color.random()
+                            )
+                        except:
+                            localembed = discord.Embed(
+                                title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
+                                description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                                color=discord.Color.random()
+                            )
+
+                else: # basic flairs that can be set by anyone
+                    cc_user[str(ctx.author.id)]["flair"] = flairs[int(flair_id)]
+                    save(cc_user)
+
+                    try:
+                        localembed = discord.Embed(
+                            title=f"{uinfo['player']['name']} ({uname}) {cc_user[str(ctx.author.id)]['flair']}",
+                            description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                            color=discord.Color.random()
+                        )
+                    except:
+                        localembed = discord.Embed(
+                            title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
+                            description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
+                            color=discord.Color.random()
+                        )
+
+    except cc.ChessDotComError:
+        localembed = discord.Embed(
+            title="You do not have a connected account.",
+            description="If this is inaccurate, please report this bug to **xyrenchess**.",
+            color=discord.Color.random()
+        )
+    except IndexError:
+        localembed = discord.Embed(
+            title=f"Flair `{flair_id} does not exist.",
+            description="If this is inaccurate, please report this bug to **xyrenchess**.",
+            color=discord.Color.random()
+        )
+
+    return await ctx.respond(embed=localembed)
+
+
 
 
 
