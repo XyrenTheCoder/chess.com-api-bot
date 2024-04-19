@@ -22,7 +22,9 @@ with open("config/commands.json", 'r') as f:
 
 
 # Global variables
-client = discord.Bot()
+intents = discord.Intents.default()
+intents.message_content = True
+client = discord.Bot(intents=intents)
 color = discord.Color.random()
 
 cc = chessdotcom
@@ -97,30 +99,22 @@ def save(data: str) -> int:
 # Events
 @client.event
 async def on_ready():
-    print(f"[client] Discord bot user logged in as {client.user.name}")
+    print(f"[client] Discord bot user logged in as {client.user.name}.")
     print("[client] Ready to accept commands.")
     print("-------------")
 
 @client.event
-async def on_message(ctx: discord.Interaction):
-    ...
-
-
-# Admin commands
-@client.slash_command(
-    name="reload",
-    description="Reload databases."
-)
-async def reload(ctx: ApplicationContext):
-    global cc_user
-    with open("db/chesscom_users.json", 'r', encoding="utf-8") as f:
-        cc_user = json.load(f)
-    if ctx.author.id == 706697300872921088:
-        await ctx.respond("Reloaded database", ephemeral=True)
+async def on_message(message: discord.Message):
+    if message.content == "!reload" and message.author.id == 706697300872921088:
+        global cc_user
+        with open("db/chesscom_users.json", 'r', encoding="utf-8") as f:
+            cc_user = json.load(f)
+        print("[client] Reloaded database.")
         return cc_user
+    elif message.content == "!reload" and message.author.id != 706697300872921088:
+        print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !_reload.")
     else:
-        await ctx.respond("You do not have the permission to do this.", ephemeral=True)
-
+        pass
 
 # Slash commands
 @client.slash_command(
@@ -563,13 +557,34 @@ async def profile(ctx: ApplicationContext, user: discord.User):
             )
 
     localembed.set_thumbnail(url=av)
-    localembed.add_field(name="<:followers:1228979708197081179> Followers:", value=followers)
-    localembed.add_field(name="<:daily:1132115979124617297> Daily:", value=f"{dailyelo} ({dailybest} peak)")
-    localembed.add_field(name="<:rapid:1132112926090743940> Rapid:", value=f"{rapidelo} ({rapidbest} peak)")
-    localembed.add_field(name="<:blitz:1132113580788031618> Blitz:", value=f"{blitzelo} ({blitzbest} peak)")
-    localembed.add_field(name="<:bullet:1132114505262956606> Bullet:", value=f"{bulletelo} ({bulletbest} peak)")
-    localembed.add_field(name="<:puzzle:1228978258608132237> Puzzle peak rating:", value=f"{puzzlepeak}")
-    localembed.add_field(name="<:puzzlerush:1228972358920962188> Puzzle rush best attempt:", value=f"{puzzlerush}")
+    localembed.add_field(
+        name="<:followers:1228979708197081179> Followers:",
+        value=followers
+    )
+    localembed.add_field(
+        name="<:daily:1132115979124617297> Daily:",
+        value=f"{dailyelo} ({dailybest} peak)"
+    )
+    localembed.add_field(
+        name="<:rapid:1132112926090743940> Rapid:",
+        value=f"{rapidelo} ({rapidbest} peak)"
+    )
+    localembed.add_field(
+        name="<:blitz:1132113580788031618> Blitz:",
+        value=f"{blitzelo} ({blitzbest} peak)"
+    )
+    localembed.add_field(
+        name="<:bullet:1132114505262956606> Bullet:",
+        value=f"{bulletelo} ({bulletbest} peak)"
+    )
+    localembed.add_field(
+        name="<:puzzle:1228978258608132237> Puzzle peak rating:",
+        value=f"{puzzlepeak}"
+    )
+    localembed.add_field(
+        name="<:puzzlerush:1228972358920962188> Puzzle rush best attempt:",
+        value=f"{puzzlerush}"
+    )
     localembed.set_footer(text=f"User id: {uid}")
 
     return await ctx.respond(embed=localembed)
