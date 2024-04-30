@@ -1009,7 +1009,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
             description="",
             color=discord.Color.random()
         )
-        
+
         localembed.add_field(
                 name=f"This user has not played any {format} games.",
                 value=""
@@ -1068,18 +1068,25 @@ async def rating(ctx: ApplicationContext, user: discord.User):
 
 # Bot Initialization
 try:
-    with open("config/auth.json", 'r', encoding="utf-8") as f: auth_config = json.load(f)
-    if auth_config["deploy_mode"] == "replit": client.run(os.getenv["TOKEN"])
+    with open("config/auth.json", 'r', encoding="utf-8") as f:
+        auth_config = json.load(f)
+
+    if auth_config["deploy_mode"] == "replit":
+        client.run(os.getenv["TOKEN"])
+
     if auth_config["deploy_mode"] == "local":
         if auth_config["TOKEN"] == "":
             print("Unable to deploy client: You have not added a bot token yet. Add one first in 'TOKEN' in 'config/auth.json'.")
             print("You can get a bot token from https://discord.com/developers by creating a new application.")
             raise SystemExit
+
         print("[main/Startup] Initializing bot client...")
         client.run(auth_config["TOKEN"])
+
 except KeyError:
     print("Unable to deploy client: Your configuration file is likely corrupted. Please reinstall the bot.")
     raise SystemExit
+
 except Exception as error:
     print(f"An error occured when trying to deploy the client.\nError Info:\n   {type(error).__name__}\n   {error}")
     raise SystemExit
