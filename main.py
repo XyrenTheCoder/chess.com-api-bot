@@ -2,15 +2,19 @@
 import discord
 import json
 import os
+import io
 import chessdotcom
 import random, string
+import numpy as np
+import urllib.request
+import time
 
-from time import strftime
 from typing import Union
 from discord import option, ApplicationContext
 from discord.ext import commands
 from discord.ext.pages import Paginator, Page
-
+from matplotlib import pyplot as plt
+from matplotlib import transforms
 
 # Load databases
 print("[client/startup] Populating databases...")
@@ -103,6 +107,7 @@ async def on_ready():
     print("[client] Ready to accept commands.")
     print("-------------")
 
+
 @client.event
 async def on_message(message: discord.Message):
     if message.content == "!reload" and message.author.id == 706697300872921088:
@@ -110,11 +115,15 @@ async def on_message(message: discord.Message):
         with open("db/chesscom_users.json", 'r', encoding="utf-8") as f:
             cc_user = json.load(f)
         print("[client] Reloaded database.")
+
         return cc_user
+
     elif message.content == "!reload" and message.author.id != 706697300872921088:
         print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !_reload.")
+
     else:
         pass
+
 
 # Slash commands
 @client.slash_command(
@@ -450,7 +459,8 @@ async def verify(ctx: ApplicationContext, action: str):
     description="View the profile of a user."
 )
 @option(name="user", description="Specify a user.", type=discord.User, default=None)
-async def profile(ctx: ApplicationContext, user: discord.User):
+@option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default=None)
+async def profile(ctx: ApplicationContext, user: discord.User, format: str):
     # await ctx.defer(invisible=True)
     if user == None:
         user = str(ctx.author.id)
@@ -521,70 +531,195 @@ async def profile(ctx: ApplicationContext, user: discord.User):
     except:
         puzzlerush = "*No record*"
 
-    if cc_user[user]["flair"] == "None":
-        flair = "<:placeholder:1229006396150779904>"
+    if format == None:
+        if cc_user[user]["flair"] == "None":
+            flair = "<:placeholder:1229006396150779904>"
+        else:
+            flair = cc_user[user]["flair"]
+
+        try:
+            if cc_user[user]["verified"] == "Yes":
+                localembed = discord.Embed(
+                    title=f"{uinfo['player']['name']} ({uname}) <:verified:1228974564630069380> {flair}",
+                    description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                    color=discord.Color.random()
+                )
+
+            else:
+                localembed = discord.Embed(
+                    title=f"{uinfo['player']['name']} ({uname}) <:unverified:1228975990932508692> {flair}",
+                    description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                    color=discord.Color.random()
+                )
+
+        except:
+            if cc_user[user]["verified"] == "Yes":
+                localembed = discord.Embed(
+                    title=f"{uname} <:verified:1228974564630069380> {flair}",
+                    description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                    color=discord.Color.random()
+                )
+
+            else:
+                localembed = discord.Embed(
+                    title=f"{uname} <:unverified:1228975990932508692> {flair}",
+                    description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                    color=discord.Color.random()
+                )
+
+        localembed.set_thumbnail(url=av)
+        localembed.add_field(
+            name="<:followers:1228979708197081179> Followers:",
+            value=followers
+        )
+        localembed.add_field(
+            name="<:daily:1132115979124617297> Daily:",
+            value=f"{dailyelo} ({dailybest} peak)"
+        )
+        localembed.add_field(
+            name="<:rapid:1132112926090743940> Rapid:",
+            value=f"{rapidelo} ({rapidbest} peak)"
+        )
+        localembed.add_field(
+            name="<:blitz:1132113580788031618> Blitz:",
+            value=f"{blitzelo} ({blitzbest} peak)"
+        )
+        localembed.add_field(
+            name="<:bullet:1132114505262956606> Bullet:",
+            value=f"{bulletelo} ({bulletbest} peak)"
+        )
+        localembed.add_field(
+            name="<:puzzle:1228978258608132237> Puzzle peak rating:",
+            value=f"{puzzlepeak}"
+        )
+        localembed.add_field(
+            name="<:puzzlerush:1228972358920962188> Puzzle rush best attempt:",
+            value=f"{puzzlerush}"
+        )
+
     else:
-        flair = cc_user[user]["flair"]
-
-    try:
-        if cc_user[user]["verified"] == "Yes":
-            localembed = discord.Embed(
-                title=f"{uinfo['player']['name']} ({uname}) <:verified:1228974564630069380> {flair}",
-                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
-                color=discord.Color.random()
-            )
-
+        if cc_user[user]["flair"] == "None":
+            flair = "<:placeholder:1229006396150779904>"
         else:
-            localembed = discord.Embed(
-                title=f"{uinfo['player']['name']} ({uname}) <:unverified:1228975990932508692> {flair}",
-                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
-                color=discord.Color.random()
+            flair = cc_user[user]["flair"]
+
+        try:
+            if cc_user[user]["verified"] == "Yes":
+                localembed = discord.Embed(
+                    title=f"{uinfo['player']['name']} ({uname}) <:verified:1228974564630069380> {flair}",
+                    description=f"{format.upper()} stats",
+                    color=discord.Color.random()
+                )
+
+            else:
+                localembed = discord.Embed(
+                    title=f"{uinfo['player']['name']} ({uname}) <:unverified:1228975990932508692> {flair}",
+                    description=f"{format.upper()} stats",
+                    color=discord.Color.random()
+                )
+
+        except:
+            if cc_user[user]["verified"] == "Yes":
+                localembed = discord.Embed(
+                    title=f"{uname} <:verified:1228974564630069380> {flair}",
+                    description=f"{format.upper()} stats",
+                    color=discord.Color.random()
+                )
+
+            else:
+                localembed = discord.Embed(
+                    title=f"{uname} <:unverified:1228975990932508692> {flair}",
+                    description=f"{format.upper()} stats",
+                    color=discord.Color.random()
+                )
+
+        localembed.set_thumbnail(url=av)
+
+        try:
+            w = ustats['stats'][f'chess_{format}']['record']['win']
+            d = ustats['stats'][f'chess_{format}']['record']['draw']
+            l = ustats['stats'][f'chess_{format}']['record']['loss']
+            total = w + d + l
+
+            if format == "daily":
+                localembed.add_field(
+                    name="<:daily:1132115979124617297> Daily:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_daily']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = dailyelo
+                globals()[format+'best'] = dailybest
+
+            elif format == "rapid":
+                localembed.add_field(
+                    name="<:rapid:1132112926090743940> Rapid:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_rapid']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = rapidelo
+                globals()[format+'best'] = rapidbest
+
+            elif format == "blitz":
+                localembed.add_field(
+                    name="<:blitz:1132113580788031618> Blitz:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_blitz']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = blitzelo
+                globals()[format+'best'] = blitzbest
+
+            elif format == "bullet":
+                localembed.add_field(
+                    name="<:bullet:1132114505262956606> Bullet:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_bullet']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = bulletelo
+                globals()[format+'best'] = bulletbest
+
+        except:
+            localembed.add_field(
+                name=f"This user has not played any {format} games.",
+                value=""
             )
 
-    except:
-        if cc_user[user]["verified"] == "Yes":
-            localembed = discord.Embed(
-                title=f"{uname} <:verified:1228974564630069380> {flair}",
-                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
-                color=discord.Color.random()
-            )
+            return await ctx.respond(embed=localembed)
 
-        else:
-            localembed = discord.Embed(
-                title=f"{uname} <:unverified:1228975990932508692> {flair}",
-                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
-                color=discord.Color.random()
-            )
+        localembed.add_field(
+            name="Rating:",
+            value=f"{globals()[format+'elo']} ({globals()[format+'best']} peak)"
+        )
+        localembed.add_field(
+            name="W/D/L (games):",
+            value=f"{w}/{d}/{l} ({total} games played)",
+            inline=False
+        )
+        localembed.add_field(
+            name="Rates:",
+            value=f"{round(w / total * 100, 2)}% **Win**, {round(d / total * 100, 2)}% **Draw**, {round(l / total * 100, 2)}% **Loss**",
+            inline=False
+        )
 
-    localembed.set_thumbnail(url=av)
-    localembed.add_field(
-        name="<:followers:1228979708197081179> Followers:",
-        value=followers
-    )
-    localembed.add_field(
-        name="<:daily:1132115979124617297> Daily:",
-        value=f"{dailyelo} ({dailybest} peak)"
-    )
-    localembed.add_field(
-        name="<:rapid:1132112926090743940> Rapid:",
-        value=f"{rapidelo} ({rapidbest} peak)"
-    )
-    localembed.add_field(
-        name="<:blitz:1132113580788031618> Blitz:",
-        value=f"{blitzelo} ({blitzbest} peak)"
-    )
-    localembed.add_field(
-        name="<:bullet:1132114505262956606> Bullet:",
-        value=f"{bulletelo} ({bulletbest} peak)"
-    )
-    localembed.add_field(
-        name="<:puzzle:1228978258608132237> Puzzle peak rating:",
-        value=f"{puzzlepeak}"
-    )
-    localembed.add_field(
-        name="<:puzzlerush:1228972358920962188> Puzzle rush best attempt:",
-        value=f"{puzzlerush}"
-    )
+        data_stream = io.BytesIO()
+        label = ['']
+
+        fig = plt.figure(figsize=(10, 1))
+        rot = transforms.Affine2D().rotate_deg(-90)
+
+        plt.barh(label, w, 0.1, label='Win', color='green')
+        plt.barh(label, d, 0.1, left=w, label='Draw', color='grey')
+        plt.barh(label, l, 0.1, left=np.add(w,d), label='Loss', color='red')
+        plt.title('Win/Draw/Loss record:', fontsize=15)
+
+        plt.savefig(data_stream, format='png', bbox_inches="tight", dpi = 80)
+        plt.close()
+
+        data_stream.seek(0)
+        chart = discord.File(data_stream,filename="wdl.png")
+
+        localembed.set_image(url="attachment://wdl.png")
+        return await ctx.respond(embed=localembed, file=chart)
+
     localembed.set_footer(text=f"User id: {uid}")
 
     return await ctx.respond(embed=localembed)
@@ -758,6 +893,129 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
 
     return await ctx.respond(embed=localembed)
 
+
+@client.slash_command(
+    name="progressgraph",
+    description="View the progressgraph of a user."
+)
+@option(name="user", description="Specify a user.", type=discord.User, default=None)
+@option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default="rapid")
+@option(name="period", description="Specify a period of time.", type=str, choices=["30 days", "60 days", "90 days"], default="60 days")
+async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str, period: str):
+    # await ctx.defer(invisible=True)
+    if user == None:
+        user = str(ctx.author.id)
+    else:
+        user = str(user.id)
+
+    try:
+        member = cc_user[user]["uname"]
+        uinfo = cc.get_player_profile(member).json
+        ustats = cc.get_player_stats(member).json
+
+    except:
+        localembed = discord.Embed(
+            title="You do not have a connected account.",
+            description="If this is inaccurate, please report this bug to **xyrenchess**.",
+            color=discord.Color.random()
+        )
+
+        return await ctx.respond(embed=localembed)
+
+    uname = uinfo['player']['username']
+
+    try:
+        check = ustats['stats'][f'chess_{format}'] # anything related to an unplayed tc should work
+
+        if period == "30 days":
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=30&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        elif period == "60 days":
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=60&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        elif period == "90 days":
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=90&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        else:
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=60&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        with urllib.request.urlopen(req) as url:
+            data = json.load(url)
+
+        timer = list()
+        xtimer = list()
+        ratings = list()
+
+        for i in data:
+            if period == "30 days":
+                j = time.strftime('%Y-%m-%d', time.localtime(int(i['timestamp'])/1000))
+                timer.append(j)
+                xtimer.append(int(i['timestamp'])/1000)
+                ratings.append(i['rating'])
+
+            elif period == "60 days" or period == "90 days":
+                if int(time.strftime('%d', time.localtime(int(i['timestamp'])/1000))) % 2 == 0:
+                    j = time.strftime('%Y-%m-%d', time.localtime(int(i['timestamp'])/1000))
+                    timer.append(j)
+                    xtimer.append(int(i['timestamp'])/1000)
+                    ratings.append(i['rating'])
+                else:
+                    pass
+
+            else:
+                print('?') # unknown error, this should never appear/ being used
+
+        x = np.array(timer)
+        y = ratings
+
+        data_stream = io.BytesIO()
+        fig = plt.figure(figsize=(25, 8))
+
+        plt.plot(x, y)
+        plt.xticks(rotation=60)
+
+        plt.savefig(data_stream, format='png', bbox_inches="tight", dpi=80)
+        plt.close()
+
+        data_stream.seek(0)
+        chart = discord.File(data_stream,filename="psgraph.png")
+
+        localembed = discord.Embed(
+            title=f"{uname}'s {period} progress ({format}):",
+            description="",
+            color=discord.Color.random()
+        )
+
+        localembed.set_image(url="attachment://psgraph.png")
+        localembed.set_footer(text="The collected data from https://www.chess.com/callback/live/stats/{username}/chart?daysAgo={days}&type={tc} is unstable and might be inaccurate.")
+
+        return await ctx.respond(embed=localembed, file=chart)
+
+    except:
+        localembed = discord.Embed(
+            title=f"{uname}'s {period} progress ({format}):",
+            description="",
+            color=discord.Color.random()
+        )
+        
+        localembed.add_field(
+                name=f"This user has not played any {format} games.",
+                value=""
+            )
+
+        return await ctx.respond(embed=localembed)
 
 
 
