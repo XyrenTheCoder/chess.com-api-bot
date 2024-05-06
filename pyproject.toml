@@ -7,8 +7,13 @@ license = "GPL-3.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.9"
 py-cord = "^2.4.1"
+chess.com = "^2.1.0"
+chess = "^1.10.0"
+numpy = "^1.20.2"
+matplotlib = "^3.6.2"
+aspose-words = "^24.4.0"
 
 
 [build-system]

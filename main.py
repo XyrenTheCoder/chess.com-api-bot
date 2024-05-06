@@ -7,11 +7,12 @@ import chessdotcom
 import chess
 import chess.svg
 import re
-import random, string
+import random
+import string
 import numpy as np
 import urllib.request
 import time
-
+import aspose.words as aw
 
 from typing import Union
 from discord import option, ApplicationContext
@@ -20,7 +21,6 @@ from discord.ext.pages import Paginator, Page
 from matplotlib import pyplot as plt
 from matplotlib import transforms
 
-import aspose.words as aw
 
 # Load databases
 print("[client/startup] Populating databases...")
