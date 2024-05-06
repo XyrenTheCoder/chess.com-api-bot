@@ -5,6 +5,12 @@
         "args": "",
         "disabled": false
     },
+    "ping": {
+        "name": "Ping",
+        "description": "Get the bot's latency.",
+        "args": "",
+        "disabled": false
+    },
     "profile": {
         "name": "Profile",
         "description": "View the profile of a user. Leave `user` blank to view your own profile. Specify a `format` for detailed stats.",
@@ -39,6 +45,12 @@
         "name": "Setflair",
         "description": "Display a flair on profile. Leave `flair_id` blank to remove your flair.",
         "args": "`flair_id`",
+        "disabled": false
+    },
+    "puzzle": {
+        "name": "RandomPuzzle",
+        "description": "Get a random daily puzzle from Chess.com.",
+        "args": "",
         "disabled": false
     }
 }
