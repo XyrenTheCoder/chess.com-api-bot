@@ -1099,14 +1099,14 @@ async def puzzlerandom(ctx: ApplicationContext):
 
     if data['fen'].split()[1] == 'w':
         localembed = discord.Embed(
-            title=f"Puzzle from <t:{data['publish_time']}>",
+            title=f"Puzzle from <t:{data['publish_time']}:D>",
             description=f"**White** to move.",
             color=discord.Color.random()
         )
 
     else:
         localembed = discord.Embed(
-            title=f"Puzzle from <t:{data['publish_time']}>",
+            title=f"Puzzle from <t:{data['publish_time']}:D>",
             description=f"**Black** to move.",
             color=discord.Color.random()
         )
@@ -1135,7 +1135,7 @@ async def puzzlerandom(ctx: ApplicationContext):
         shape.get_shape_renderer().save(f"db/cache/puzzle{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
 
     gensvg()
-    file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+    file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
 
     localembed.set_image(url=f"attachment://puzzle{log}.png")
     localembed.set_footer(text=data["url"])
@@ -1166,14 +1166,14 @@ async def puzzlerandom(ctx: ApplicationContext):
                             localembed.set_field_at(0, name=' '.join(setlist), value='')
 
                             gensvg()
-                            file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+                            file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
 
                             await ctx.respond(embed=localembed, file=file)
                             return await moves()
 
                         except IndexError:
                             gensvg()
-                            file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+                            file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
 
                             localembed.set_field_at(0, name=' '.join(setlist), value='')
                             localembed.add_field(name='Puzzle solved!', value='', inline=False)
@@ -1201,7 +1201,7 @@ async def puzzlerandom(ctx: ApplicationContext):
 
                 except IndexError:
                     gensvg()
-                    file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+                    file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
 
                     localembed.set_field_at(0, name=' '.join(setlist))
                     localembed.add_field(name='Puzzle solved!', value='')
