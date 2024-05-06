@@ -20,6 +20,7 @@ from discord.ext import commands
 from discord.ext.pages import Paginator, Page
 from matplotlib import pyplot as plt
 from matplotlib import transforms
+from distutils.dir_util import copy_tree, remove_tree
 
 
 # Load databases
@@ -117,16 +118,66 @@ async def on_ready():
 
 @client.event
 async def on_message(message: discord.Message):
-    if message.content == "!reload" and message.author.id == 706697300872921088:
-        global cc_user
-        with open("db/chesscom_users.json", 'r', encoding="utf-8") as f:
-            cc_user = json.load(f)
-        print("[client] Reloaded database.")
+    if message.content == "!reload":
+        if message.author.id == 706697300872921088:
+            global cc_user
+            with open("db/chesscom_users.json", 'r', encoding="utf-8") as f:
+                cc_user = json.load(f)
 
-        return cc_user
+            print("[client-!reload] Reloaded database.")
 
-    elif message.content == "!reload" and message.author.id != 706697300872921088:
-        print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !_reload.")
+            return cc_user
+
+        else:
+            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !reload.")
+
+    elif message.content == "!clearcache":
+        if message.author.id == 706697300872921088:
+            try:
+                remove_tree("db/cache")
+                os.mkdir("db/cache")
+
+                print("[client-!clearcache] Cleared cache.")
+
+            except:
+                print("[client-!clearcache] Data is being used right now, please try again later.")
+
+        else:
+            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !clearcache.")
+
+    elif message.content == "!wipe":
+        if message.author.id == 706697300872921088:
+            try:
+                remove_tree("db")
+                os.mkdir("db")
+                os.mkdir("db/cache")
+
+                print("[client-!wipe] Wiped all data.")
+
+            except:
+                print("[client-!wipe] Data is being used right now, please try again later.")
+
+        else:
+            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !wipe.")
+
+    elif message.content == "!backup":
+        if message.author.id == 706697300872921088:
+            copy_tree("db", f"backups/{time.time()}")
+
+            print("[client-!backup] Created backup of database.")
+
+        else:
+            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !backup.")
+
+    elif message.content == "!recover":
+        if message.author.id == 706697300872921088:
+            db = max(os.listdir("backups"))
+            copy_tree(f"backups/{db}", "db")
+
+            print(f"[client-!recover] Recovered from database backup at {db}.")
+
+        else:
+            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !recover.")
 
     else:
         pass
@@ -1014,7 +1065,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
         )
 
         localembed.set_image(url="attachment://psgraph.png")
-        localembed.set_footer(text="The collected data from https://www.chess.com/callback/live/stats/{username}/chart?daysAgo={days}&type={tc} is unstable and might be inaccurate.")
+        localembed.set_footer(text=f"The collected data from https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo={period}&type={format} is unstable and might be inaccurate.")
 
         return await ctx.respond(embed=localembed, file=chart)
 
