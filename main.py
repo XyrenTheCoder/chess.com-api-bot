@@ -4,10 +4,14 @@ import json
 import os
 import io
 import chessdotcom
+import chess
+import chess.svg
+import re
 import random, string
 import numpy as np
 import urllib.request
 import time
+
 
 from typing import Union
 from discord import option, ApplicationContext
@@ -15,6 +19,8 @@ from discord.ext import commands
 from discord.ext.pages import Paginator, Page
 from matplotlib import pyplot as plt
 from matplotlib import transforms
+
+import aspose.words as aw
 
 # Load databases
 print("[client/startup] Populating databases...")
@@ -87,6 +93,7 @@ flairs = [
 # Check for databases and autogenerate them
 if not os.path.isdir("db"):
     os.mkdir("db")
+    os.mkdir("db/cache")
 
 if not os.path.isfile("db/chesscom_users.json"):
     with open("db/chesscom_users.json", 'x', encoding="utf-8") as f:
@@ -143,6 +150,14 @@ async def _help(ctx: ApplicationContext):
     localembed.set_footer(text="`< >`: Required, else optional.")
 
     await ctx.respond(embed=localembed)
+
+
+@client.slash_command(
+    name="ping",
+    description="Get the bot's latency."
+)
+async def ping(ctx: ApplicationContext):
+    await ctx.respond(f'Pong! My current latency is {round(client.latency * 1000)}ms.')
 
 
 @client.slash_command(
@@ -990,7 +1005,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
         plt.close()
 
         data_stream.seek(0)
-        chart = discord.File(data_stream,filename="psgraph.png")
+        chart = discord.File(data_stream, filename="psgraph.png")
 
         localembed = discord.Embed(
             title=f"{uname}'s {period} progress ({format}):",
@@ -1011,11 +1026,147 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
         )
 
         localembed.add_field(
-                name=f"This user has not played any {format} games.",
-                value=""
-            )
+            name=f"This user has not played any {format} games.",
+            value=""
+        )
 
         return await ctx.respond(embed=localembed)
+
+
+@client.slash_command(
+    name="puzzle",
+    description="Get a random daily puzzle from Chess.com."
+)
+async def puzzlerandom(ctx: ApplicationContext):
+    req = urllib.request.Request(
+        url="https://api.chess.com/pub/puzzle/random",
+        headers={'User-Agent': 'Mozilla/5.0'}
+    )
+
+    with urllib.request.urlopen(req) as url:
+        data = json.load(url)
+
+    if data['fen'].split()[1] == 'w':
+        localembed = discord.Embed(
+            title=f"Puzzle from <t:{data['publish_time']}>",
+            description=f"**White** to move.",
+            color=discord.Color.random()
+        )
+
+    else:
+        localembed = discord.Embed(
+            title=f"Puzzle from <t:{data['publish_time']}>",
+            description=f"**Black** to move.",
+            color=discord.Color.random()
+        )
+
+    localembed.add_field(name='', value='')
+
+    board = chess.Board(data["fen"])
+    setlist = []
+
+    def gensvg():
+        if data["fen"].split()[1] == "w":
+            boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+        else:
+            boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+
+        f = open("db/cache/position.svg", "w")
+        f.write(boardsvg)
+        f.close()
+
+        doc = aw.Document()
+        builder = aw.DocumentBuilder(doc)
+        shape = builder.insert_image("db/cache/position.svg")
+
+        global log
+        log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+        shape.get_shape_renderer().save(f"db/cache/puzzle{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+
+    gensvg()
+    file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+
+    localembed.set_image(url=f"attachment://puzzle{log}.png")
+    localembed.set_footer(text=data["url"])
+
+    await ctx.respond(embed=localembed, file=file)
+
+    pgn0 = data['pgn'].split('1.')[1].strip()
+    pgn = re.sub('\r\n|\d+\.\s|\d+\.|\.{2}|\*|1-0|0-1', '', pgn0).split()
+
+    def check(m):
+        return m.channel == ctx.channel
+
+    async def moves():
+        if pgn.index(pgn[0]) % 2 == 0:
+            msg = await client.wait_for("message", check=check)
+            print(re.sub("[x+#=]", '', pgn[0])) # cheating cuz im bad at chess
+
+            if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?', msg.content):
+                try:
+                    if msg.content == pgn[0] or msg.content == re.sub("[x+#=]", '', pgn[0]):
+                        try:
+                            board.push_san(pgn[0]) # your move
+                            setlist.append(pgn.pop(0))
+
+                            board.push_san(pgn[0]) # opponents response
+                            setlist.append(pgn.pop(0))
+
+                            localembed.set_field_at(0, name=' '.join(setlist), value='')
+
+                            gensvg()
+                            file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+
+                            await ctx.respond(embed=localembed, file=file)
+                            return await moves()
+
+                        except IndexError:
+                            gensvg()
+                            file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+
+                            localembed.set_field_at(0, name=' '.join(setlist), value='')
+                            localembed.add_field(name='Puzzle solved!', value='', inline=False)
+
+                            return await ctx.respond(embed=localembed, file=file)
+
+                    else:
+                        try:
+                            board.parse_san(msg.content)
+
+                            await ctx.respond("Wrong move!")
+                            return await moves()
+
+                        except chess.InvalidMoveError:
+                            await ctx.respond("Invalid move!")
+                            return await moves()
+
+                        except chess.IllegalMoveError:
+                            await ctx.respond("Illegal move!")
+                            return await moves()
+
+                        except chess.AmbiguousMoveError:
+                            await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                            return await moves()
+
+                except IndexError:
+                    gensvg()
+                    file = discord.File(f"db/cache/puzzle{log}.png", filename="puzzle.png")
+
+                    localembed.set_field_at(0, name=' '.join(setlist))
+                    localembed.add_field(name='Puzzle solved!', value='')
+
+                    return await ctx.respond(embed=localembed, file=file)
+            else:
+                return await moves() # ignore
+
+
+    for i in pgn:
+        try:
+            await moves()
+        except:
+            return await moves()
+
+
 
 
 
