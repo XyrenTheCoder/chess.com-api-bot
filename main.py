@@ -6,6 +6,8 @@ import io
 import chessdotcom
 import chess
 import chess.svg
+import stockfish
+import platform
 import re
 import random
 import string
@@ -21,6 +23,7 @@ from discord.ext.pages import Paginator, Page
 from matplotlib import pyplot as plt
 from matplotlib import transforms
 from distutils.dir_util import copy_tree, remove_tree
+from stockfish import Stockfish
 
 
 # Load databases
@@ -107,6 +110,13 @@ def save(data: str) -> int:
         json.dump(data, f, indent=4)
     return 0
 
+if platform.system() == 'Windows':
+    stockfish = Stockfish(path='./stockfish_15.1_win_x64_avx2/stockfish-windows-2022-x86-64-avx2.exe')
+elif platform.system() == 'Linux':
+    stockfish = Stockfish(path='./stockfish_15.1_linux_x64/stockfish-ubuntu-20.04-x86-64')
+else:
+    print('OS not supported, please try to use another OS instead.') # mac bad
+    exit()
 
 # Events
 @client.event
@@ -114,6 +124,9 @@ async def on_ready():
     print(f"[client] Discord bot user logged in as {client.user.name}.")
     print("[client] Ready to accept commands.")
     print("-------------")
+
+    botactivity = discord.Activity(type=discord.ActivityType.playing, name="Chess.com", state="10+0 Rapid", large_image="chess_com")
+    await client.change_presence(activity=botactivity, status=discord.Status.streaming)
 
 
 @client.event
@@ -188,17 +201,32 @@ async def on_message(message: discord.Message):
     name="help",
     description="Need some help?"
 )
-async def _help(ctx: ApplicationContext):
-    parsed_desc = ""
+@option(name="detailed", description="Detailed command list.", type=bool, choices=[True, False], default=False)
+async def _help(ctx: ApplicationContext, detailed: bool):
+    if detailed == True:
+        parsed_desc = ""
 
-    for command in commands_db:
-        parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command} {commands_db[command]['args']}"
-    localembed = discord.Embed(
-        title="My Commands",
-        description=parsed_desc,
-        color=discord.Color.random()
-    )
-    localembed.set_footer(text="`< >`: Required, else optional.")
+        for command in commands_db:
+            parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command} {commands_db[command]['args']}"
+
+        localembed = discord.Embed(
+            title="My Commands",
+            description=parsed_desc,
+            color=discord.Color.random()
+        )
+
+        localembed.set_footer(text="`< >`: Required, else optional.")
+
+    else:
+        parsed = ', '.join(commands_db)
+
+        localembed = discord.Embed(
+            title="Commands overview",
+            description=parsed,
+            color=discord.Color.random()
+        )
+
+        localembed.set_footer(text="Use `/help detailed: True` for detailed command list.")
 
     await ctx.respond(embed=localembed)
 
@@ -240,7 +268,7 @@ async def code(ctx: ApplicationContext, code: str):
                 color=discord.Color.random()
             )
 
-            return await ctx.respond(embed=localembed)
+            await ctx.respond(embed=localembed)
 
         if cc_user[str(ctx.author.id)]["flair"] == sflair:
             try:
@@ -249,6 +277,7 @@ async def code(ctx: ApplicationContext, code: str):
                     description="You have already claimed this hidden flair!",
                     color=discord.Color.random()
                 )
+
             except:
                 localembed = discord.Embed(
                     title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
@@ -280,7 +309,7 @@ async def code(ctx: ApplicationContext, code: str):
             color=discord.Color.random()
         )
 
-    return await ctx.respond(embed=localembed)
+    await ctx.respond(embed=localembed)
 
 
 @client.slash_command(
@@ -322,7 +351,7 @@ async def connect(ctx: ApplicationContext, username: str):
         )
         localembed.set_footer(text="Do not know what to do? Use `/verify help` for the guide to verify your account.")
 
-        return await ctx.respond(embed=localembed)
+        await ctx.respond(embed=localembed)
 
     except cc.ChessDotComError:
         localembed = discord.Embed(
@@ -331,7 +360,7 @@ async def connect(ctx: ApplicationContext, username: str):
             color=discord.Color.random()
         )
 
-        return await ctx.respond(embed=localembed)
+        await ctx.respond(embed=localembed)
 
 
 @client.slash_command(
@@ -412,7 +441,7 @@ async def verify(ctx: ApplicationContext, action: str):
         ]
         paginator = Paginator(pages=pages)
 
-        return await paginator.respond(ctx.interaction, ephemeral=True)
+        await paginator.respond(ctx.interaction, ephemeral=True)
 
     elif action == "verify":
         try:
@@ -481,6 +510,7 @@ async def verify(ctx: ApplicationContext, action: str):
                 pf = cc.get_player_profile(username).json
                 vcode = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
                 cc_user[ids]["verification_code"] = vcode
+
                 save(cc_user)
 
                 user = await client.fetch_user(ctx.author.id)
@@ -501,7 +531,7 @@ async def verify(ctx: ApplicationContext, action: str):
                     value="Please check your DM list."
                 )
 
-                return await ctx.respond(embed=localembed)
+                await ctx.respond(embed=localembed)
 
             else:
                 localembed = discord.Embed(
@@ -517,7 +547,7 @@ async def verify(ctx: ApplicationContext, action: str):
                 color=discord.Color.random()
             )
 
-    return await ctx.respond(embed=localembed)
+    await ctx.respond(embed=localembed)
 
 
 @client.slash_command(
@@ -545,7 +575,7 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
             color=discord.Color.random()
         )
 
-        return await ctx.respond(embed=localembed)
+        await ctx.respond(embed=localembed)
 
     # status = uinfo["player"]["status"]
     uname = uinfo["player"]["username"]
@@ -749,7 +779,7 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
                 value=""
             )
 
-            return await ctx.respond(embed=localembed)
+            await ctx.respond(embed=localembed)
 
         localembed.add_field(
             name="Rating:",
@@ -784,11 +814,11 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
         chart = discord.File(data_stream,filename="wdl.png")
 
         localembed.set_image(url="attachment://wdl.png")
-        return await ctx.respond(embed=localembed, file=chart)
+        await ctx.respond(embed=localembed, file=chart)
 
     localembed.set_footer(text=f"User id: {uid}")
 
-    return await ctx.respond(embed=localembed)
+    await ctx.respond(embed=localembed)
 
 
 @client.slash_command(
@@ -823,11 +853,6 @@ async def flairlist(ctx: ApplicationContext):
     for i in range(31, 43):
         localb1.add_field(name=flairs[i], value=f"(ID: {i})")
 
-    # for i in range(18, 27):
-    #     localembed3.add_field(name=pflairs[i], value=f"(ID: {i})")
-    # for i in range(27, 30):
-    #     localembed3.add_field(name=pflairs[i], value=f"(ID: {i})")
-
     localembed1.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
     localembed2.set_footer(text="Use `/setpremiumflair {flair_id}` to display your favourite flair on profile!")
     localb1.set_footer(text="Use `/setbasicflair {flair_id}` to display your favourite flair on profile!")
@@ -839,7 +864,7 @@ async def flairlist(ctx: ApplicationContext):
     ]
     paginator = Paginator(pages=pages)
 
-    return await paginator.respond(ctx.interaction)
+    await paginator.respond(ctx.interaction)
 
 
 @client.slash_command(
@@ -861,6 +886,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
                         description="You do not have a flair to remove lmao.",
                         color=discord.Color.random()
                     )
+
                 except:
                     localembed = discord.Embed(
                         title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
@@ -878,6 +904,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
                         description="Your flair has been removed!",
                         color=discord.Color.random()
                     )
+
                 except:
                     localembed = discord.Embed(
                         title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
@@ -893,6 +920,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
                         description="Interesting, you are trying to display the same flair that you are currently displaying.",
                         color=discord.Color.random()
                     )
+
                 except:
                     localembed = discord.Embed(
                         title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
@@ -920,6 +948,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
                                 description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
                                 color=discord.Color.random()
                             )
+
                         except:
                             localembed = discord.Embed(
                                 title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
@@ -937,6 +966,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
                             description=f"Your flair has been set to {cc_user[str(ctx.author.id)]['flair']} !",
                             color=discord.Color.random()
                         )
+
                     except:
                         localembed = discord.Embed(
                             title=f"{uname} {cc_user[str(ctx.author.id)]['flair']}",
@@ -950,6 +980,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
             description="If this is inaccurate, please report this bug to **xyrenchess**.",
             color=discord.Color.random()
         )
+
     except IndexError:
         localembed = discord.Embed(
             title=f"Flair `{flair_id} does not exist.",
@@ -957,7 +988,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
             color=discord.Color.random()
         )
 
-    return await ctx.respond(embed=localembed)
+    await ctx.respond(embed=localembed)
 
 
 @client.slash_command(
@@ -986,7 +1017,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
             color=discord.Color.random()
         )
 
-        return await ctx.respond(embed=localembed)
+        await ctx.respond(embed=localembed)
 
     uname = uinfo['player']['username']
 
@@ -1037,6 +1068,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
                     timer.append(j)
                     xtimer.append(int(i['timestamp'])/1000)
                     ratings.append(i['rating'])
+
                 else:
                     pass
 
@@ -1067,7 +1099,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
         localembed.set_image(url="attachment://psgraph.png")
         localembed.set_footer(text=f"The collected data from https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo={period}&type={format} is unstable and might be inaccurate.")
 
-        return await ctx.respond(embed=localembed, file=chart)
+        await ctx.respond(embed=localembed, file=chart)
 
     except:
         localembed = discord.Embed(
@@ -1075,13 +1107,12 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
             description="",
             color=discord.Color.random()
         )
-
         localembed.add_field(
             name=f"This user has not played any {format} games.",
             value=""
         )
 
-        return await ctx.respond(embed=localembed)
+        await ctx.respond(embed=localembed)
 
 
 @client.slash_command(
@@ -1156,6 +1187,7 @@ async def puzzlerandom(ctx: ApplicationContext):
             if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?', msg.content):
                 try:
                     if msg.content == pgn[0] or msg.content == re.sub("[x+#=]", '', pgn[0]):
+
                         try:
                             board.push_san(pgn[0]) # your move
                             setlist.append(pgn.pop(0))
@@ -1178,7 +1210,7 @@ async def puzzlerandom(ctx: ApplicationContext):
                             localembed.set_field_at(0, name=' '.join(setlist), value='')
                             localembed.add_field(name='Puzzle solved!', value='', inline=False)
 
-                            return await ctx.respond(embed=localembed, file=file)
+                            await ctx.respond(embed=localembed, file=file)
 
                     else:
                         try:
@@ -1206,10 +1238,9 @@ async def puzzlerandom(ctx: ApplicationContext):
                     localembed.set_field_at(0, name=' '.join(setlist))
                     localembed.add_field(name='Puzzle solved!', value='')
 
-                    return await ctx.respond(embed=localembed, file=file)
+                    await ctx.respond(embed=localembed, file=file)
             else:
                 return await moves() # ignore
-
 
     for i in pgn:
         try:
@@ -1218,9 +1249,58 @@ async def puzzlerandom(ctx: ApplicationContext):
             return await moves()
 
 
+@client.slash_command(
+    name="analyse",
+    description="Analyse a position with the given FEN."
+)
+@option(name="fen", description="Specify position with FEN.", type=str)
+@option(name="depth", description="Specify engine's depth.", type=str, choices=[15, 20, 25, 30], default=15)
+async def analyse(ctx: ApplicationContext, fen: str, depth: int):
+    stockfish.set_depth(depth)
+    stockfish.set_fen_position(fen)
 
+    best = stockfish.get_top_moves()
+    ev0 = stockfish.get_evaluation()
 
+    if ev0["type"] == "cp":
+        ev = ev0["value"] / 100
+    else:
+        if ev0["value"] > 0:
+            ev = f"M{ev0['value']}"
+        else:
+            ev = f"-M{ev0['value']*-1}"
 
+    board = chess.Board(fen)
+
+    if fen.split()[1] == "w":
+        boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+    else:
+        boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+
+    f = open("db/cache/position.svg", "w")
+    f.write(boardsvg)
+    f.close()
+
+    doc = aw.Document()
+    builder = aw.DocumentBuilder(doc)
+    shape = builder.insert_image("db/cache/position.svg")
+
+    global log
+    log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+    shape.get_shape_renderer().save(f"db/cache/eval{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+
+    file = discord.File(f"db/cache/eval{log}.png", filename=f"eval{log}.png")
+
+    localembed = discord.Embed(
+        title="Evaluation:",
+        description='',
+        color=discord.Color.random()
+    )
+    localembed.set_image(url=f"attachment://eval{log}.png")
+    localembed.add_field(name="Eval:", value=ev)
+    localembed.add_field(name="Top engine moves:", value='\n'.join(best))
+
+    await ctx.respond(embed=localembed, file=file)
 
 
 """
