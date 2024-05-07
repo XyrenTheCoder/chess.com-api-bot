@@ -110,13 +110,26 @@ def save(data: str) -> int:
         json.dump(data, f, indent=4)
     return 0
 
+
 if platform.system() == 'Windows':
     stockfish = Stockfish(path='./stockfish_15.1_win_x64_avx2/stockfish-windows-2022-x86-64-avx2.exe')
+    commands_db["analyse"]["disabled"] = 'false'
+    with open("config/commands.json", 'w+') as f:
+        json.dump(commands_db, f, indent=4)
+
 elif platform.system() == 'Linux':
     stockfish = Stockfish(path='./stockfish_15.1_linux_x64/stockfish-ubuntu-20.04-x86-64')
+    commands_db["analyse"]["disabled"] = 'false'
+    with open("config/commands.json", 'w+') as f:
+        json.dump(commands_db, f, indent=4)
+
 else:
-    print('OS not supported, please try to use another OS instead.') # mac bad
-    exit()
+    print('Failed to start Stockfish as your OS not supported, please try to use another OS instead.') # mac bad
+    print('[client] Command /analyse has been disabled.')
+    commands_db["analyse"]["disabled"] = 'true'
+    with open("config/commands.json", 'w+') as f:
+        json.dump(commands_db, f, indent=4)
+
 
 # Events
 @client.event
@@ -133,16 +146,19 @@ async def on_ready():
 async def on_message(message: discord.Message):
     if message.content == "!reload":
         if message.author.id == 706697300872921088:
-            global cc_user
+            global cc_user, commands_db
+
             with open("db/chesscom_users.json", 'r', encoding="utf-8") as f:
                 cc_user = json.load(f)
 
-            print("[client-!reload] Reloaded database.")
+            with open("config/commands.json", 'r') as f:
+                commands_db = json.load(f)
 
-            return cc_user
+            print("[main/!reload] Reloaded database.")
+            return cc_user, commands_db
 
         else:
-            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !reload.")
+            print(f"[main/!reload] User {message.author.name} ({message.author.id}) does not have permission to trigger !reload.")
 
     elif message.content == "!clearcache":
         if message.author.id == 706697300872921088:
@@ -150,13 +166,13 @@ async def on_message(message: discord.Message):
                 remove_tree("db/cache")
                 os.mkdir("db/cache")
 
-                print("[client-!clearcache] Cleared cache.")
+                print("[main/!clearcache] Cleared cache.")
 
             except:
-                print("[client-!clearcache] Data is being used right now, please try again later.")
+                print("[main/!clearcache] Data is being used right now, please try again later.")
 
         else:
-            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !clearcache.")
+            print(f"[main/!clearcache] User {message.author.name} ({message.author.id}) does not have permission to trigger !clearcache.")
 
     elif message.content == "!wipe":
         if message.author.id == 706697300872921088:
@@ -165,32 +181,32 @@ async def on_message(message: discord.Message):
                 os.mkdir("db")
                 os.mkdir("db/cache")
 
-                print("[client-!wipe] Wiped all data.")
+                print("[main/!wipe] Wiped all data.")
 
             except:
-                print("[client-!wipe] Data is being used right now, please try again later.")
+                print("[main/!wipe] Data is being used right now, please try again later.")
 
         else:
-            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !wipe.")
+            print(f"[main/!wipe] User {message.author.name} ({message.author.id}) does not have permission to trigger !wipe.")
 
     elif message.content == "!backup":
         if message.author.id == 706697300872921088:
             copy_tree("db", f"backups/{time.time()}")
 
-            print("[client-!backup] Created backup of database.")
+            print("[main/!backup] Created backup of database.")
 
         else:
-            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !backup.")
+            print(f"[main/!backup] User {message.author.name} ({message.author.id}) does not have permission to trigger !backup.")
 
     elif message.content == "!recover":
         if message.author.id == 706697300872921088:
             db = max(os.listdir("backups"))
             copy_tree(f"backups/{db}", "db")
 
-            print(f"[client-!recover] Recovered from database backup at {db}.")
+            print(f"[main/!recover] Recovered from database backup at {db}.")
 
         else:
-            print(f"[client] User {message.author.name} ({message.author.id}) does not have permission to trigger !recover.")
+            print(f"[main/!recover] User {message.author.name} ({message.author.id}) does not have permission to trigger !recover.")
 
     else:
         pass
@@ -207,7 +223,10 @@ async def _help(ctx: ApplicationContext, detailed: bool):
         parsed_desc = ""
 
         for command in commands_db:
-            parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command} {commands_db[command]['args']}"
+            if command['disabled'] != 'true':
+                parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command} {commands_db[command]['args']}"
+            else:
+                pass
 
         localembed = discord.Embed(
             title="My Commands",
@@ -551,6 +570,218 @@ async def verify(ctx: ApplicationContext, action: str):
 
 
 @client.slash_command(
+    name="viewprofile",
+    description="View the profile of a Chess.com user."
+)
+@option(name="user", description="Specify a user.", type=str)
+@option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default=None)
+async def viewprofile(ctx: ApplicationContext, user: str, format: str):
+    # await ctx.defer(invisible=True)
+    uinfo = cc.get_player_profile(user).json
+    ustats = cc.get_player_stats(user).json
+
+    # status = uinfo["player"]["status"]
+    uname = uinfo["player"]["username"]
+    since = uinfo["player"]["joined"]
+    lastonline = uinfo["player"]["last_online"]
+    followers = uinfo["player"]["followers"]
+    uid = uinfo["player"]["player_id"]
+
+    try:
+        av = uinfo["player"]["avatar"]
+    except:
+        av = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQTlCxyf01tNZOzuEuqFgstHMj2EMz8uOjJtrC159vgmg&s"
+
+    try:
+        dailyelo = ustats["stats"]["chess_daily"]["last"]["rating"]
+        dailybest = ustats["stats"]["chess_daily"]["best"]["rating"]
+    except:
+        dailyelo = "*No record*"
+        dailybest = 0
+
+    try:
+        rapidelo = ustats["stats"]["chess_rapid"]["last"]["rating"]
+        rapidbest = ustats["stats"]["chess_rapid"]["best"]["rating"]
+    except:
+        rapidelo = "*No record*"
+        rapidbest = 0
+
+    try:
+        blitzelo = ustats["stats"]["chess_blitz"]["last"]["rating"]
+        blitzbest = ustats["stats"]["chess_blitz"]["best"]["rating"]
+    except:
+        blitzelo = "*No record*"
+        blitzbest = 0
+
+    try:
+        bulletelo = ustats["stats"]["chess_bullet"]["last"]["rating"]
+        bulletbest = ustats["stats"]["chess_bullet"]["best"]["rating"]
+    except:
+        bulletelo = "*No record*"
+        bulletbest = 0
+
+    try:
+        puzzlepeak = ustats["stats"]["tactics"]["highest"]["rating"]
+    except:
+        puzzlepeak = "*No record*"
+
+    try:
+        puzzlerush = ustats["stats"]["puzzle_rush"]["best"]["score"]
+    except:
+        puzzlerush = "*No record*"
+
+    if format == None:
+        try:
+            localembed = discord.Embed(
+                title=f"{uinfo['player']['name']} ({uname})",
+                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                color=discord.Color.random()
+            )
+
+        except:
+            localembed = discord.Embed(
+                title=f"{uname}",
+                description=f"Member since <t:{since}> | Last online: <t:{lastonline}>",
+                color=discord.Color.random()
+            )
+
+        localembed.set_thumbnail(url=av)
+        localembed.add_field(
+            name="<:followers:1228979708197081179> Followers:",
+            value=followers
+        )
+        localembed.add_field(
+            name="<:daily:1132115979124617297> Daily:",
+            value=f"{dailyelo} ({dailybest} peak)"
+        )
+        localembed.add_field(
+            name="<:rapid:1132112926090743940> Rapid:",
+            value=f"{rapidelo} ({rapidbest} peak)"
+        )
+        localembed.add_field(
+            name="<:blitz:1132113580788031618> Blitz:",
+            value=f"{blitzelo} ({blitzbest} peak)"
+        )
+        localembed.add_field(
+            name="<:bullet:1132114505262956606> Bullet:",
+            value=f"{bulletelo} ({bulletbest} peak)"
+        )
+        localembed.add_field(
+            name="<:puzzle:1228978258608132237> Puzzle peak rating:",
+            value=f"{puzzlepeak}"
+        )
+        localembed.add_field(
+            name="<:puzzlerush:1228972358920962188> Puzzle rush best attempt:",
+            value=f"{puzzlerush}"
+        )
+
+    else:
+        try:
+            localembed = discord.Embed(
+                title=f"{uinfo['player']['name']} ({uname})",
+                description=f"{format.upper()} stats",
+                color=discord.Color.random()
+            )
+
+        except:
+            localembed = discord.Embed(
+                title=f"{uname}",
+                description=f"{format.upper()} stats",
+                color=discord.Color.random()
+            )
+
+        localembed.set_thumbnail(url=av)
+
+        try:
+            w = ustats['stats'][f'chess_{format}']['record']['win']
+            d = ustats['stats'][f'chess_{format}']['record']['draw']
+            l = ustats['stats'][f'chess_{format}']['record']['loss']
+            total = w + d + l
+
+            if format == "daily":
+                localembed.add_field(
+                    name="<:daily:1132115979124617297> Daily:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_daily']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = dailyelo
+                globals()[format+'best'] = dailybest
+
+            elif format == "rapid":
+                localembed.add_field(
+                    name="<:rapid:1132112926090743940> Rapid:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_rapid']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = rapidelo
+                globals()[format+'best'] = rapidbest
+
+            elif format == "blitz":
+                localembed.add_field(
+                    name="<:blitz:1132113580788031618> Blitz:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_blitz']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = blitzelo
+                globals()[format+'best'] = blitzbest
+
+            elif format == "bullet":
+                localembed.add_field(
+                    name="<:bullet:1132114505262956606> Bullet:",
+                    value=f"Last game played at: <t:{ustats['stats']['chess_bullet']['last']['date']}>",
+                    inline=False
+                )
+                globals()[format+'elo'] = bulletelo
+                globals()[format+'best'] = bulletbest
+
+        except:
+            localembed.add_field(
+                name=f"This user has not played any {format} games.",
+                value=""
+            )
+
+            return await ctx.respond(embed=localembed)
+
+        localembed.add_field(
+            name="Rating:",
+            value=f"{globals()[format+'elo']} ({globals()[format+'best']} peak)"
+        )
+        localembed.add_field(
+            name="W/D/L (games):",
+            value=f"{w}/{d}/{l} ({total} games played)",
+            inline=False
+        )
+        localembed.add_field(
+            name="Rates:",
+            value=f"{round(w / total * 100, 2)}% **Win**, {round(d / total * 100, 2)}% **Draw**, {round(l / total * 100, 2)}% **Loss**",
+            inline=False
+        )
+
+        data_stream = io.BytesIO()
+        label = ['']
+
+        fig = plt.figure(figsize=(10, 1))
+        rot = transforms.Affine2D().rotate_deg(-90)
+
+        plt.barh(label, w, 0.1, label='Win', color='green')
+        plt.barh(label, d, 0.1, left=w, label='Draw', color='grey')
+        plt.barh(label, l, 0.1, left=np.add(w,d), label='Loss', color='red')
+        plt.title('Win/Draw/Loss record:', fontsize=15)
+
+        plt.savefig(data_stream, format='png', bbox_inches="tight", dpi = 80)
+        plt.close()
+
+        data_stream.seek(0)
+        chart = discord.File(data_stream,filename="wdl.png")
+
+        localembed.set_image(url="attachment://wdl.png")
+
+    localembed.set_footer(text=f"User id: {uid}")
+
+    await ctx.respond(embed=localembed, file=chart)
+
+
+@client.slash_command(
     name="profile",
     description="View the profile of a user."
 )
@@ -779,7 +1010,7 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
                 value=""
             )
 
-            await ctx.respond(embed=localembed)
+            return await ctx.respond(embed=localembed)
 
         localembed.add_field(
             name="Rating:",
@@ -814,11 +1045,10 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
         chart = discord.File(data_stream,filename="wdl.png")
 
         localembed.set_image(url="attachment://wdl.png")
-        await ctx.respond(embed=localembed, file=chart)
 
     localembed.set_footer(text=f"User id: {uid}")
 
-    await ctx.respond(embed=localembed)
+    await ctx.respond(embed=localembed, file=chart)
 
 
 @client.slash_command(
@@ -992,8 +1222,116 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
 
 
 @client.slash_command(
+    name="viewprogress",
+    description="View the progression graph of a Chess.com user."
+)
+@option(name="user", description="Specify a user.", type=str)
+@option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default="rapid")
+@option(name="period", description="Specify a period of time.", type=str, choices=["30 days", "60 days", "90 days"], default="60 days")
+async def progressgraph(ctx: ApplicationContext, user: str, format: str, period: str):
+    # await ctx.defer(invisible=True)
+    uinfo = cc.get_player_profile(user).json
+    ustats = cc.get_player_stats(user).json
+
+    uname = uinfo['player']['username']
+
+    try:
+        check = ustats['stats'][f'chess_{format}'] # anything related to an unplayed tc should work
+
+        if period == "30 days":
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=30&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        elif period == "60 days":
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=60&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        elif period == "90 days":
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=90&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        else:
+            req = urllib.request.Request(
+                url=f"https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo=60&type={format}",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+        with urllib.request.urlopen(req) as url:
+            data = json.load(url)
+
+        timer = list()
+        xtimer = list()
+        ratings = list()
+
+        for i in data:
+            if period == "30 days":
+                j = time.strftime('%Y-%m-%d', time.localtime(int(i['timestamp'])/1000))
+                timer.append(j)
+                xtimer.append(int(i['timestamp'])/1000)
+                ratings.append(i['rating'])
+
+            elif period == "60 days" or period == "90 days":
+                if int(time.strftime('%d', time.localtime(int(i['timestamp'])/1000))) % 2 == 0:
+                    j = time.strftime('%Y-%m-%d', time.localtime(int(i['timestamp'])/1000))
+                    timer.append(j)
+                    xtimer.append(int(i['timestamp'])/1000)
+                    ratings.append(i['rating'])
+
+                else:
+                    pass
+
+            else:
+                print('?') # unknown error, this should never appear/ being used
+
+        x = np.array(timer)
+        y = ratings
+
+        data_stream = io.BytesIO()
+        fig = plt.figure(figsize=(25, 8))
+
+        plt.plot(x, y)
+        plt.xticks(rotation=60)
+
+        plt.savefig(data_stream, format='png', bbox_inches="tight", dpi=80)
+        plt.close()
+
+        data_stream.seek(0)
+        chart = discord.File(data_stream, filename="psgraph.png")
+
+        localembed = discord.Embed(
+            title=f"{uname}'s {period} progress ({format}):",
+            description="",
+            color=discord.Color.random()
+        )
+
+        localembed.set_image(url="attachment://psgraph.png")
+        localembed.set_footer(text=f"The collected data from https://www.chess.com/callback/live/stats/{uname}/chart?daysAgo={period}&type={format} is unstable and might be inaccurate.")
+
+        await ctx.respond(embed=localembed, file=chart)
+
+    except:
+        localembed = discord.Embed(
+            title=f"{uname}'s {period} progress ({format}):",
+            description="",
+            color=discord.Color.random()
+        )
+        localembed.add_field(
+            name=f"This user has not played any {format} games.",
+            value=""
+        )
+
+        await ctx.respond(embed=localembed)
+
+
+@client.slash_command(
     name="progressgraph",
-    description="View the progressgraph of a user."
+    description="View the progression graph of a user."
 )
 @option(name="user", description="Specify a user.", type=discord.User, default=None)
 @option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default="rapid")
@@ -1261,93 +1599,97 @@ async def puzzlerandom(ctx: ApplicationContext):
 @option(name="depth", description="Specify engine's depth.", type=int, choices=[15, 20, 25], default=15)
 @option(name="number", description="Specify how many engine moves to show.", type=int, choices=[3, 5, 8], default=3)
 async def analyse(ctx: ApplicationContext, fen: str, depth: str, number: int):
-    try:
-        board = chess.Board(fen)
-    except:
-        return await ctx.respond("Invalid FEN position!")
-
-    stockfish.set_depth(depth)
-    stockfish.set_fen_position(fen)
-
-    best = stockfish.get_top_moves(number)
-    ev0 = stockfish.get_evaluation()
-
-    if fen.split()[1] == "w":
-        boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
-        localembed = discord.Embed(
-            title="__Evaluation (_White_ to move):__",
-            description=f'Analysing position {fen}',
-            color=discord.Color.random()
-        )
-
+    if commands_db["analyse"]["disabled"] == 'true':
+        return await ctx.respond("This command is temporarily disabled!")
     else:
-        boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
-        localembed = discord.Embed(
-            title="__Evaluation (_Black_ to move):__",
-            description=f'Analysing position {fen}',
-            color=discord.Color.random()
-        )
+        try:
+            board = chess.Board(fen)
+        except:
+            return await ctx.respond("Invalid FEN position!")
 
-    f = open("db/cache/position.svg", "w")
-    f.write(boardsvg)
-    f.close()
+        stockfish.set_depth(depth)
+        stockfish.set_fen_position(fen)
 
-    doc = aw.Document()
-    builder = aw.DocumentBuilder(doc)
-    shape = builder.insert_image("db/cache/position.svg")
+        best = stockfish.get_top_moves(number)
+        ev0 = stockfish.get_evaluation()
 
-    global log
-    log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
-    shape.get_shape_renderer().save(f"db/cache/eval{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+        if fen.split()[1] == "w":
+            boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+            localembed = discord.Embed(
+                title="__Evaluation (_White_ to move):__",
+                description=f'Analysing position {fen}',
+                color=discord.Color.random()
+            )
 
-    file = discord.File(f"db/cache/eval{log}.png", filename=f"eval{log}.png")
-    localembed.set_image(url=f"attachment://eval{log}.png")
-
-    if ev0["type"] == "cp":
-        ev = ev0["value"]/100
-    else:
-        if ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "b":
-            ev = "M0"
-        elif ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "w":
-            ev = "-M0"
         else:
-            ev = f"M{ev0['value']}"
+            boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+            localembed = discord.Embed(
+                title="__Evaluation (_Black_ to move):__",
+                description=f'Analysing position {fen}',
+                color=discord.Color.random()
+            )
 
-    if ev == "M0":
-        localembed.add_field(name="__Eval:__", value="_White_ won by Checkmate", inline=False)
-    elif ev == "-M0":
-        localembed.add_field(name="__Eval:__", value="_Black_ won by Checkmate", inline=False)
-    else:
-        if board.is_stalemate():
-            localembed.add_field(name="__Eval:__", value="Draw by Stalemate", inline=False)
-        elif board.is_insufficient_material():
-            localembed.add_field(name="__Eval:__", value="Draw by Insufficient material", inline=False)
-        elif board.is_fifty_moves():
-            localembed.add_field(name="__Eval:__", value="Draw by 50 move rule", inline=False)
+        f = open("db/cache/position.svg", "w")
+        f.write(boardsvg)
+        f.close()
+
+        doc = aw.Document()
+        builder = aw.DocumentBuilder(doc)
+        shape = builder.insert_image("db/cache/position.svg")
+
+        global log
+        log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+        shape.get_shape_renderer().save(f"db/cache/eval{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+
+        file = discord.File(f"db/cache/eval{log}.png", filename=f"eval{log}.png")
+        localembed.set_image(url=f"attachment://eval{log}.png")
+
+        if ev0["type"] == "cp":
+            ev = ev0["value"]/100
         else:
-            localembed.add_field(name="__Eval:__", value=ev, inline=False)
-
-    if len(best) == 0:
-        localembed.add_field(name="", value='', inline=False)
-    else:
-        localembed.add_field(name="__Top engine moves:__", value='', inline=False)
-
-    for i in best:
-        if i["Mate"] == None:
-            if i["Centipawn"] > 0:
-                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_White_ has the advantage of {i['Centipawn']/100}", inline=False)
-            elif i["Centipawn"] < 0:
-                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_Black_ has the advantage of {i['Centipawn']/100*-1}", inline=False)
+            if ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "b":
+                ev = "M0"
+            elif ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "w":
+                ev = "-M0"
             else:
-                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Position is equal ({i['Centipawn']/100})", inline=False)
+                ev = f"M{ev0['value']}"
 
+        if ev == "M0":
+            localembed.add_field(name="__Eval:__", value="_White_ won by Checkmate", inline=False)
+        elif ev == "-M0":
+            localembed.add_field(name="__Eval:__", value="_Black_ won by Checkmate", inline=False)
         else:
-            if i["Mate"] > 0:
-                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']} by _White_", inline=False)
+            if board.is_stalemate():
+                localembed.add_field(name="__Eval:__", value="Draw by Stalemate", inline=False)
+            elif board.is_insufficient_material():
+                localembed.add_field(name="__Eval:__", value="Draw by Insufficient material", inline=False)
+            elif board.is_fifty_moves():
+                localembed.add_field(name="__Eval:__", value="Draw by 50 move rule", inline=False)
             else:
-                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']*-1} by _Black_", inline=False)
+                localembed.add_field(name="__Eval:__", value=ev, inline=False)
 
-    await ctx.respond(embed=localembed, file=file)
+        if len(best) == 0:
+            localembed.add_field(name="", value='', inline=False)
+        else:
+            localembed.add_field(name="__Top engine moves:__", value='', inline=False)
+
+        for i in best:
+            if i["Mate"] == None:
+                if i["Centipawn"] > 0:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_White_ has the advantage of {i['Centipawn']/100}", inline=False)
+                elif i["Centipawn"] < 0:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_Black_ has the advantage of {i['Centipawn']/100*-1}", inline=False)
+                else:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Position is equal ({i['Centipawn']/100})", inline=False)
+
+            else:
+                if i["Mate"] > 0:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']} by _White_", inline=False)
+                else:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']*-1} by _Black_", inline=False)
+
+        await ctx.respond(embed=localembed, file=file)
+
 
 
 """
@@ -1409,7 +1751,7 @@ try:
             print("You can get a bot token from https://discord.com/developers by creating a new application.")
             raise SystemExit
 
-        print("[main/Startup] Initializing bot client...")
+        print("[main/startup] Initializing bot client...")
         client.run(auth_config["TOKEN"])
 
 except KeyError:
