@@ -1,7 +1,7 @@
 # Blue "Water elemental chess bot"
 A Discord bot that uses Chess.com API. (In development)
 
-<h6>Want to contribute to development? Feel free to make an issue or a pull request :)</h6>
+<h4>Want to contribute to development? Feel free to make an issue or a pull request :)</h4>
 
 # Features (slash commands)
 
@@ -19,9 +19,9 @@ Download the original stockfish engine with the link below:
 
 > https://www.mediafire.com/file/b7pkmgtcd1l8tng/stockfish_15.1_linux_x64.tar.gz/file
 
-<h3>After extracting the folder, put it inside your program's destination and open terminal to run the following command:
+<h4>After extracting the folder, put it inside your program's destination and open terminal to run the following command:
 
-`chmod +x stockfish-ubuntu-20.04-x86-64`</h3>
+`chmod +x stockfish-ubuntu-20.04-x86-64`</h4>
 
 ## On Windows:
 
@@ -29,7 +29,7 @@ Download the original stockfish engine with the link below:
 
 > https://www.mediafire.com/file/nb0lslewmgoc6vi/stockfish_15.1_win_x64.zip/file
 
-<h3>After extracting the folder, put it inside your program's destination.</h3>
+<h4>After extracting the folder, put it inside your program's destination.</h4>
 
 # notes
 
