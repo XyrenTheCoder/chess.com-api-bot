@@ -1,56 +1,74 @@
 {
     "help": {
         "name": "Help",
-        "description": "This command which shows the command list.",
-        "args": "",
-        "disabled": false
+        "description": "This command which shows the command list. Enable `detailed` to get the detailed list.",
+        "args": "`detailed (default: False)`",
+        "disabled": "false"
     },
     "ping": {
         "name": "Ping",
         "description": "Get the bot's latency.",
         "args": "",
-        "disabled": false
+        "disabled": "false"
+    },
+    "viewprofile": {
+        "name": "ViewProfile",
+        "description": "View the profile of a Chess.com user. Specify a `format` for detailed stats.",
+        "args": "<`user`>, `format`",
+        "disabled": "false"
     },
     "profile": {
         "name": "Profile",
         "description": "View the profile of a user. Leave `user` blank to view your own profile. Specify a `format` for detailed stats.",
-        "args": "`user (default: self)` / `format`",
-        "disabled": false
+        "args": "`user (default: self)`, `format`",
+        "disabled": "false"
+    },
+    "viewprogress": {
+        "name": "ViewProgression",
+        "description": "View the progression graph of a Chess.com user. Specify a time `format` to switch format. Specify a `period` of time to expand/shrink the view.",
+        "args": "<`user`>, `format (default: rapid)`, `period (default: 60 days)`",
+        "disabled": "false"
     },
     "progressgraph": {
         "name": "ProgressionGraph",
         "description": "View the progression graph of a user. Leave `user` blank to view your own graph in a specific time `format`. Specify a `period` of time to expand/shrink the view.",
-        "args": "`user (default: self)` / `format (default: rapid)` / `period (default: 60 days)`",
+        "args": "`user (default: self)`, `format (default: rapid)`, `period (default: 60 days)`",
         "disabled": false
     },
     "connect": {
         "name": "Connect",
         "description": "Connect your Chess.com account with your account's username.",
         "args": "<`username`>",
-        "disabled": false
+        "disabled": "false"
     },
     "verify": {
         "name": "Verify",
         "description": "Get a help on how to verify. / Verify your Chess.com account. / Get a new verification code.",
         "args": "<`help` / `verify` / `newcode`>",
-        "disabled": false
+        "disabled": "false"
     },
     "flairlist": {
         "name": "Flairlist",
         "description": "Get the list of flairs available.",
         "args": "",
-        "disabled": false
+        "disabled": "false"
     },
     "setflair": {
         "name": "Setflair",
         "description": "Display a flair on profile. Leave `flair_id` blank to remove your flair.",
         "args": "`flair_id`",
-        "disabled": false
+        "disabled": "false"
     },
     "puzzle": {
         "name": "RandomPuzzle",
         "description": "Get a random daily puzzle from Chess.com.",
         "args": "",
-        "disabled": false
+        "disabled": "false"
+    },
+    "analyse": {
+        "name": "AnalysePosition",
+        "description": "Analyse a position with the given FEN. Specify a `depth` for Stockfish. Specify a move `number` for engine moves.",
+        "args": "<`fen`>, `depth (default: 15)`, `number (default: 3)`",
+        "disabled": "false"
     }
 }
