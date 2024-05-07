@@ -3,17 +3,17 @@ A Discord bot that uses Chess.com API. (In development)
 
 <h4>Want to contribute to development? Feel free to make an issue or a pull request :)</h4>
 
-# Features (slash commands)
+## Features (slash commands)
 
 help, ping, profile, progressgraph, connect, verify, flairlist, setflair, puzzle, analyse
 
-# Admin commands
+## Admin commands
 
 !reload, !clearcache, !wipe, !backup, !recover
 
-# Using Stockfish 15.1
+## Using Stockfish 15.1
 
-## On Linux:
+### On Linux:
 
 Download the original stockfish engine with the link below:
 
@@ -23,7 +23,7 @@ Download the original stockfish engine with the link below:
 
 `chmod +x stockfish-ubuntu-20.04-x86-64`</h4>
 
-## On Windows:
+### On Windows:
 
 Download the original stockfish engine with the link below:
 
