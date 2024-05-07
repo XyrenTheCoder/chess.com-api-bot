@@ -1200,6 +1200,8 @@ async def puzzlerandom(ctx: ApplicationContext):
                             gensvg()
                             file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
 
+                            localembed.set_image(url=f"attachment://puzzle{log}.png")
+
                             await ctx.respond(embed=localembed, file=file)
                             return await moves()
 
@@ -1207,6 +1209,7 @@ async def puzzlerandom(ctx: ApplicationContext):
                             gensvg()
                             file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
 
+                            localembed.set_image(url=f"attachment://puzzle{log}.png")
                             localembed.set_field_at(0, name=' '.join(setlist), value='')
                             localembed.add_field(name='Puzzle solved!', value='', inline=False)
 
@@ -1235,6 +1238,7 @@ async def puzzlerandom(ctx: ApplicationContext):
                     gensvg()
                     file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
 
+                    localembed.set_image(url=f"attachment://puzzle{log}.png")
                     localembed.set_field_at(0, name=' '.join(setlist))
                     localembed.add_field(name='Puzzle solved!', value='')
 
@@ -1254,28 +1258,35 @@ async def puzzlerandom(ctx: ApplicationContext):
     description="Analyse a position with the given FEN."
 )
 @option(name="fen", description="Specify position with FEN.", type=str)
-@option(name="depth", description="Specify engine's depth.", type=str, choices=[15, 20, 25, 30], default=15)
-async def analyse(ctx: ApplicationContext, fen: str, depth: int):
+@option(name="depth", description="Specify engine's depth.", type=int, choices=[15, 20, 25], default=15)
+@option(name="number", description="Specify how many engine moves to show.", type=int, choices=[3, 5, 8], default=3)
+async def analyse(ctx: ApplicationContext, fen: str, depth: str, number: int):
+    try:
+        board = chess.Board(fen)
+    except:
+        return await ctx.respond("Invalid FEN position!")
+
     stockfish.set_depth(depth)
     stockfish.set_fen_position(fen)
 
-    best = stockfish.get_top_moves()
+    best = stockfish.get_top_moves(number)
     ev0 = stockfish.get_evaluation()
-
-    if ev0["type"] == "cp":
-        ev = ev0["value"] / 100
-    else:
-        if ev0["value"] > 0:
-            ev = f"M{ev0['value']}"
-        else:
-            ev = f"-M{ev0['value']*-1}"
-
-    board = chess.Board(fen)
 
     if fen.split()[1] == "w":
         boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+        localembed = discord.Embed(
+            title="__Evaluation (_White_ to move):__",
+            description=f'Analysing position {fen}',
+            color=discord.Color.random()
+        )
+
     else:
         boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+        localembed = discord.Embed(
+            title="__Evaluation (_Black_ to move):__",
+            description=f'Analysing position {fen}',
+            color=discord.Color.random()
+        )
 
     f = open("db/cache/position.svg", "w")
     f.write(boardsvg)
@@ -1290,15 +1301,51 @@ async def analyse(ctx: ApplicationContext, fen: str, depth: int):
     shape.get_shape_renderer().save(f"db/cache/eval{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
 
     file = discord.File(f"db/cache/eval{log}.png", filename=f"eval{log}.png")
-
-    localembed = discord.Embed(
-        title="Evaluation:",
-        description='',
-        color=discord.Color.random()
-    )
     localembed.set_image(url=f"attachment://eval{log}.png")
-    localembed.add_field(name="Eval:", value=ev)
-    localembed.add_field(name="Top engine moves:", value='\n'.join(best))
+
+    if ev0["type"] == "cp":
+        ev = ev0["value"]/100
+    else:
+        if ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "b":
+            ev = "M0"
+        elif ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "w":
+            ev = "-M0"
+        else:
+            ev = f"M{ev0['value']}"
+
+    if ev == "M0":
+        localembed.add_field(name="__Eval:__", value="_White_ won by Checkmate", inline=False)
+    elif ev == "-M0":
+        localembed.add_field(name="__Eval:__", value="_Black_ won by Checkmate", inline=False)
+    else:
+        if board.is_stalemate():
+            localembed.add_field(name="__Eval:__", value="Draw by Stalemate", inline=False)
+        elif board.is_insufficient_material():
+            localembed.add_field(name="__Eval:__", value="Draw by Insufficient material", inline=False)
+        elif board.is_fifty_moves():
+            localembed.add_field(name="__Eval:__", value="Draw by 50 move rule", inline=False)
+        else:
+            localembed.add_field(name="__Eval:__", value=ev, inline=False)
+
+    if len(best) == 0:
+        localembed.add_field(name="", value='', inline=False)
+    else:
+        localembed.add_field(name="__Top engine moves:__", value='', inline=False)
+
+    for i in best:
+        if i["Mate"] == None:
+            if i["Centipawn"] > 0:
+                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_White_ has the advantage of {i['Centipawn']/100}", inline=False)
+            elif i["Centipawn"] < 0:
+                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_Black_ has the advantage of {i['Centipawn']/100*-1}", inline=False)
+            else:
+                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Position is equal ({i['Centipawn']/100})", inline=False)
+
+        else:
+            if i["Mate"] > 0:
+                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']} by _White_", inline=False)
+            else:
+                localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']*-1} by _Black_", inline=False)
 
     await ctx.respond(embed=localembed, file=file)
 
