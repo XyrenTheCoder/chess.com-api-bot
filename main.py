@@ -1512,7 +1512,7 @@ async def puzzlerandom(ctx: ApplicationContext):
     await ctx.respond(embed=localembed, file=file)
 
     pgn0 = data['pgn'].split('1.')[1].strip()
-    pgn = re.sub('\r\n|\d+\.\s|\d+\.|\.{2}|\*|1-0|0-1', '', pgn0).split()
+    pgn = re.sub('\r\n|\d+\.\s|\d+\.|\.{2}|\*|1-0|0-1|1/2-1/2', '', pgn0).split()
 
     def check(m):
         return m.channel == ctx.channel
