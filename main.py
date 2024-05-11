@@ -3,6 +3,7 @@ import discord
 import json
 import os
 import io
+import berserk
 import chessdotcom
 import chess
 import chess.svg
@@ -34,6 +35,9 @@ with open("db/chesscom_users.json", 'r') as f:
 with open("config/commands.json", 'r') as f:
     commands_db = json.load(f)
 
+with open("config/auth.json", 'r', encoding="utf-8") as f:
+    auth_config = json.load(f)
+
 
 # Global variables
 intents = discord.Intents.default()
@@ -45,6 +49,19 @@ cc = chessdotcom
 cc.Client.request_config["headers"]["User-Agent"] = (
     "Discord bot by XyrenChess."
 )
+try:
+    session = berserk.TokenSession(auth_config["API_TOKEN"])
+    berserker = berserk.Client(session=session)
+    commands_db["lcpuzzle"]["disabled"] = 'false'
+    with open("config/commands.json", 'w+') as f:
+        json.dump(commands_db, f, indent=4)
+except:
+    print("Error: You have not added a Lichess API token yet. Add one first in 'API_TOKEN' in 'config/auth.json'.")
+    print("You can get an API token from https://lichess.org/account/oauth/token.")
+    print('[client] Command /lcpuzzle has been disabled.')
+    commands_db["lcpuzzle"]["disabled"] = 'true'
+    with open("config/commands.json", 'w+') as f:
+        json.dump(commands_db, f, indent=4)
 
 flairs = [
     "<:diamond0:1229010811268239400>",
@@ -124,7 +141,7 @@ elif platform.system() == 'Linux':
         json.dump(commands_db, f, indent=4)
 
 else:
-    print('Failed to start Stockfish as your OS not supported, please try to use another OS instead.') # mac bad
+    print('Error: Failed to start Stockfish as your OS not supported, please try to use another OS instead.') # mac bad
     print('[client] Command /analyse has been disabled.')
     commands_db["analyse"]["disabled"] = 'true'
     with open("config/commands.json", 'w+') as f:
@@ -219,11 +236,12 @@ async def on_message(message: discord.Message):
 )
 @option(name="detailed", description="Detailed command list.", type=bool, choices=[True, False], default=False)
 async def _help(ctx: ApplicationContext, detailed: bool):
+    await ctx.defer(invisible=True)
     if detailed == True:
         parsed_desc = ""
 
         for command in commands_db:
-            if command['disabled'] != 'true':
+            if commands_db[command]['disabled'] == 'false':
                 parsed_desc += f"\n\n**{commands_db[command]['name']}**: {commands_db[command]['description']}\nFormat: /{command} {commands_db[command]['args']}"
             else:
                 pass
@@ -337,7 +355,7 @@ async def code(ctx: ApplicationContext, code: str):
 )
 @option(name="username", description="Your Chess.com username.", type=str)
 async def connect(ctx: ApplicationContext, username: str):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     try:
         pf = cc.get_player_profile(username).json
         vcode = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
@@ -388,7 +406,7 @@ async def connect(ctx: ApplicationContext, username: str):
 )
 @option(name="action", description="What to do?", type=str, choices=["help", "verify", "newcode"])
 async def verify(ctx: ApplicationContext, action: str):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     ids = str(ctx.author.id)
 
     if action == "help":
@@ -576,11 +594,10 @@ async def verify(ctx: ApplicationContext, action: str):
 @option(name="user", description="Specify a user.", type=str)
 @option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default=None)
 async def viewprofile(ctx: ApplicationContext, user: str, format: str):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     uinfo = cc.get_player_profile(user).json
     ustats = cc.get_player_stats(user).json
 
-    # status = uinfo["player"]["status"]
     uname = uinfo["player"]["username"]
     since = uinfo["player"]["joined"]
     lastonline = uinfo["player"]["last_online"]
@@ -788,7 +805,7 @@ async def viewprofile(ctx: ApplicationContext, user: str, format: str):
 @option(name="user", description="Specify a user.", type=discord.User, default=None)
 @option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default=None)
 async def profile(ctx: ApplicationContext, user: discord.User, format: str):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     if user == None:
         user = str(ctx.author.id)
     else:
@@ -895,6 +912,7 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
                 )
 
         localembed.set_thumbnail(url=av)
+
         localembed.add_field(
             name="<:followers:1228979708197081179> Followers:",
             value=followers
@@ -923,6 +941,8 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
             name="<:puzzlerush:1228972358920962188> Puzzle rush best attempt:",
             value=f"{puzzlerush}"
         )
+
+        await ctx.respond(embed=localembed)
 
     else:
         if cc_user[user]["flair"] == "None":
@@ -1042,13 +1062,13 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
         plt.close()
 
         data_stream.seek(0)
-        chart = discord.File(data_stream,filename="wdl.png")
+        chart = discord.File(data_stream, filename="wdl.png")
 
         localembed.set_image(url="attachment://wdl.png")
+        localembed.set_footer(text=f"User id: {uid}")
 
-    localembed.set_footer(text=f"User id: {uid}")
+        await ctx.respond(embed=localembed, file=chart)
 
-    await ctx.respond(embed=localembed, file=chart)
 
 
 @client.slash_command(
@@ -1056,7 +1076,7 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
     description="Get the list of flairs available."
 )
 async def flairlist(ctx: ApplicationContext):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     localembed1 = discord.Embed(
         title="Premium flairs: Page 1",
         description="List of flairs that can be set by premium Chess.com users.",
@@ -1103,7 +1123,7 @@ async def flairlist(ctx: ApplicationContext):
 )
 @option(name="flair_id", description="ID of the flair.", type=int, default=None)
 async def setflair(ctx: ApplicationContext, flair_id: int = None):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     try:
         uname = cc_user[str(ctx.author.id)]["uname"]
         uinfo = cc.get_player_profile(uname).json
@@ -1229,7 +1249,7 @@ async def setflair(ctx: ApplicationContext, flair_id: int = None):
 @option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default="rapid")
 @option(name="period", description="Specify a period of time.", type=str, choices=["30 days", "60 days", "90 days"], default="60 days")
 async def progressgraph(ctx: ApplicationContext, user: str, format: str, period: str):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     uinfo = cc.get_player_profile(user).json
     ustats = cc.get_player_stats(user).json
 
@@ -1337,7 +1357,7 @@ async def progressgraph(ctx: ApplicationContext, user: str, format: str, period:
 @option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default="rapid")
 @option(name="period", description="Specify a period of time.", type=str, choices=["30 days", "60 days", "90 days"], default="60 days")
 async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str, period: str):
-    # await ctx.defer(invisible=True)
+    await ctx.defer(invisible=True)
     if user == None:
         user = str(ctx.author.id)
     else:
@@ -1458,6 +1478,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
     description="Get a random daily puzzle from Chess.com."
 )
 async def puzzlerandom(ctx: ApplicationContext):
+    await ctx.defer(invisible=True)
     req = urllib.request.Request(
         url="https://api.chess.com/pub/puzzle/random",
         headers={'User-Agent': 'Mozilla/5.0'}
@@ -1522,9 +1543,9 @@ async def puzzlerandom(ctx: ApplicationContext):
             msg = await client.wait_for("message", check=check)
             print(re.sub("[x+#=]", '', pgn[0])) # cheating cuz im bad at chess
 
-            if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?', msg.content):
+            if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content):
                 try:
-                    if msg.content == pgn[0] or msg.content == re.sub("[x+#=]", '', pgn[0]):
+                    if re.sub("[x+#=]", '', msg.content) == re.sub("[x+#=]", '', pgn[0]):
 
                         try:
                             board.push_san(pgn[0]) # your move
@@ -1580,7 +1601,7 @@ async def puzzlerandom(ctx: ApplicationContext):
                     localembed.set_field_at(0, name=' '.join(setlist))
                     localembed.add_field(name='Puzzle solved!', value='')
 
-                    await ctx.respond(embed=localembed, file=file)
+                    return await ctx.respond(embed=localembed, file=file)
             else:
                 return await moves() # ignore
 
@@ -1599,6 +1620,7 @@ async def puzzlerandom(ctx: ApplicationContext):
 @option(name="depth", description="Specify engine's depth.", type=int, choices=[15, 20, 25], default=15)
 @option(name="number", description="Specify how many engine moves to show.", type=int, choices=[3, 5, 8], default=3)
 async def analyse(ctx: ApplicationContext, fen: str, depth: str, number: int):
+    await ctx.defer(invisible=True)
     if commands_db["analyse"]["disabled"] == 'true':
         return await ctx.respond("This command is temporarily disabled!")
     else:
@@ -1691,6 +1713,171 @@ async def analyse(ctx: ApplicationContext, fen: str, depth: str, number: int):
         await ctx.respond(embed=localembed, file=file)
 
 
+@client.slash_command(
+    name="lcpuzzle",
+    description="Get a puzzle from Lichess.org."
+)
+@option(name="id", description="Specify a puzzle's ID to retrieve.", type=str, default=None)
+async def puzzlelc(ctx: ApplicationContext, id: str):
+    await ctx.defer(invisible=True)
+    if commands_db["lcpuzzle"]["disabled"] == 'true':
+        return await ctx.respond("This command is temporarily disabled!")
+    else:
+        if id == None:
+            return await ctx.respond("I have a sh*t pc and this mf wont let me use the lichess database from the csv file... I guess I cant generate random puzzles unless someone do it for me :(\nhttps://cdn.discordapp.com/attachments/1207936256265293856/1238856249634983956/image.png?ex=6640ce4a&is=663f7cca&hm=e3485d8f28d3929c9646aae5da9cddcef216bb78b0b9b38f7953467150ad8618&")
+        else:
+            try:
+                pz = berserker.puzzles.get(id)
+            except:
+                return await ctx.respond(f"Puzzle {id} does not exist!")
+
+        rating = pz['puzzle']['rating']
+
+        pgn0 = pz["game"]['pgn'].split()
+        board = chess.Board()
+        setlist = []
+
+        for i in pgn0:
+            board.push(board.parse_san(i))
+
+        fen = board.fen()
+
+        pgn = []
+        solution = pz["puzzle"]["solution"]
+        for i in solution:
+            pgn.append(board.san(board.parse_uci(i)))
+            board.push(board.parse_uci(i))
+
+        print(pgn)
+
+        board = chess.Board(fen.split()[0])
+
+        if fen.split()[1] == 'w':
+            localembed = discord.Embed(
+                title=f"Puzzle {id} | _Rating: ||{rating}||_",
+                description=f"**White** to move.",
+                color=discord.Color.random()
+            )
+
+        else:
+            localembed = discord.Embed(
+                title=f"Puzzle {id}| _Rating: ||{rating}||_",
+                description=f"**Black** to move.",
+                color=discord.Color.random()
+            )
+
+        localembed.add_field(name='', value='')
+
+        def gensvg():
+            if fen.split()[1] == "w":
+                boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+            else:
+                boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+
+            f = open("db/cache/position.svg", "w")
+            f.write(boardsvg)
+            f.close()
+
+            doc = aw.Document()
+            builder = aw.DocumentBuilder(doc)
+            shape = builder.insert_image("db/cache/position.svg")
+
+            global log
+            log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+            shape.get_shape_renderer().save(f"db/cache/puzzle{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+
+        gensvg()
+        file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
+
+        localembed.set_image(url=f"attachment://puzzle{log}.png")
+        localembed.set_footer(text=f"https://lichess.org/training/{id}")
+
+        await ctx.respond(embed=localembed, file=file)
+
+        def check(m):
+            return m.channel == ctx.channel
+
+        async def moves():
+            if pgn.index(pgn[0]) % 2 == 0:
+                msg = await client.wait_for("message", check=check)
+                print(re.sub("[x+#=]", '', pgn[0])) # cheating cuz im bad at chess
+
+                if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content):
+                    try:
+                        if re.sub("[x+#=]", '', msg.content) == re.sub("[x+#=]", '', pgn[0]):
+                            try:
+                                board.push_san(pgn[0]) # your move
+                                setlist.append(pgn.pop(0))
+
+                                board.push_san(pgn[0]) # opponents response
+                                setlist.append(pgn.pop(0))
+
+                                localembed.set_field_at(0, name=' '.join(setlist), value='')
+
+                                gensvg()
+                                file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
+
+                                localembed.set_image(url=f"attachment://puzzle{log}.png")
+
+                                await ctx.respond(embed=localembed, file=file)
+                                return await moves()
+
+                            except IndexError:
+                                gensvg()
+                                file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
+
+                                localembed.set_image(url=f"attachment://puzzle{log}.png")
+                                localembed.set_field_at(0, name=' '.join(setlist), value='')
+                                localembed.add_field(name='Puzzle solved!', value='', inline=False)
+
+                                await ctx.respond(embed=localembed, file=file)
+
+                        else:
+                            try:
+                                board.parse_san(msg.content)
+
+                                await ctx.respond("Wrong move!")
+                                return await moves()
+
+                            except chess.InvalidMoveError:
+                                await ctx.respond("Invalid move!")
+                                return await moves()
+
+                            except chess.IllegalMoveError:
+                                await ctx.respond("Illegal move!")
+                                return await moves()
+
+                            except chess.AmbiguousMoveError:
+                                await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                                return await moves()
+
+                    except IndexError:
+                        gensvg()
+                        file = discord.File(f"db/cache/puzzle{log}.png", filename=f"puzzle{log}.png")
+
+                        localembed.set_image(url=f"attachment://puzzle{log}.png")
+                        localembed.set_field_at(0, name=' '.join(setlist), value='')
+                        localembed.add_field(name='Puzzle solved!', value='')
+
+                        return await ctx.respond(embed=localembed, file=file)
+                else:
+                    return await moves() # ignore
+
+        for i in pgn:
+            try:
+                await moves()
+            except:
+                return await moves()
+
+
+
+
+
+
+
+
+
+
 
 """
 # User Profile Customization Commands
@@ -1739,9 +1926,6 @@ async def rating(ctx: ApplicationContext, user: discord.User):
 
 # Bot Initialization
 try:
-    with open("config/auth.json", 'r', encoding="utf-8") as f:
-        auth_config = json.load(f)
-
     if auth_config["deploy_mode"] == "replit":
         client.run(os.getenv["TOKEN"])
 
