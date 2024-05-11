@@ -65,6 +65,12 @@
         "args": "",
         "disabled": "false"
     },
+    "lcpuzzle": {
+        "name": "LichessPuzzle",
+        "description": "Get a puzzle from Lichess.org.",
+        "args": "<`id (default: None)`>",
+        "disabled": "false"
+    },
     "analyse": {
         "name": "AnalysePosition",
         "description": "Analyse a position with the given FEN. Specify a `depth` for Stockfish. Specify a move `number` for engine moves.",
