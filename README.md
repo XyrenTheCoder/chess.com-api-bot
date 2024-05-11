@@ -5,7 +5,7 @@ A Discord bot that uses Chess.com API. (In development)
 
 ## Features (slash commands)
 
-help, ping, viewprofile, profile, viewprogress, progressgraph, connect, verify, flairlist, setflair, puzzle, analyse
+help, ping, viewprofile, profile, viewprogress, progressgraph, connect, verify, flairlist, setflair, puzzle, lcpuzzle, analyse
 
 ## Admin commands
 
