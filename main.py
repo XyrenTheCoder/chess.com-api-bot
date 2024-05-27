@@ -1991,7 +1991,7 @@ async def puzzlelc(ctx: ApplicationContext, id: str):
 @option(name="black_player", description="Specify a player to play as Black... or you can play with Stockfish!", type=discord.User, default=None)
 async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User):
     await ctx.defer(invisible=True)
-    board = chess.Board("7k/8/3B2K1/7N/8/8/8/8 w - - 98 50")
+    board = chess.Board()
 
     gameid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
 
@@ -2051,7 +2051,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
     def check_black(m):
         return m.channel == ctx.channel and m.author.id == black_player.id
 
-    def check_end():
+    def check_end_e():
         global finished, termin, res
         if board.is_checkmate():
             if board.fen().split()[1] == "w":
@@ -2109,6 +2109,64 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
         return finished
 
+    def check_end_u():
+        global finished, termin, res
+        if board.is_checkmate():
+            if board.fen().split()[1] == "w":
+                termin = "Black won by checkmate"
+                res = "0-1"
+            else:
+                termin = "White won by checkmate"
+                res = "1-0"
+
+            finished = True
+
+        elif board.is_stalemate():
+            termin = "Game drawn by stalemate"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_repetition():
+            termin = "Game drawn by repetition"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_insufficient_material():
+            termin = "Game drawn by insufficient material"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_fifty_moves():
+            termin = "Game drawn by 50-move rule"
+            res = "1/2-1/2"
+            finished = True
+        else:
+            termin = ""
+            res = ""
+
+        movelist.append(f"{res}")
+        print(termin, res)
+
+        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
+            f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "{black_player.name}"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+            """)
+        f.close()
+
+        return finished
+
     async def wenginemoves():
         global count
         count = count + 1
@@ -2136,7 +2194,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
                 localembed.set_image(url=f"attachment://game{log}.png")
 
-                finished = check_end()
+                finished = check_end_e()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
                     await ctx.respond(embed=localembed, file=file)
@@ -2158,7 +2216,6 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 return await wenginemoves()
 
     async def blacksm():
-        await ctx.send(f"<@{black_player.id}> Your move!")
         msg = await client.wait_for("message", check=check_black)
 
         if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
@@ -2173,7 +2230,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
                 localembed.set_image(url=f"attachment://game{log}.png")
 
-                finished = check_end()
+                finished = check_end_u()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
                     await ctx.respond(embed=localembed, file=file)
@@ -2198,7 +2255,6 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
         global count
         count = count + 1
 
-        await ctx.send(f"<@{ctx.author.id}> Your move!")
         msg = await client.wait_for("message", check=check_white)
 
         if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
@@ -2214,7 +2270,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
                 localembed.set_image(url=f"attachment://game{log}.png")
 
-                finished = check_end()
+                finished = check_end_u()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
                     await ctx.respond(embed=localembed, file=file)
