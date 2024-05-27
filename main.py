@@ -305,7 +305,7 @@ async def code(ctx: ApplicationContext, code: str):
                 color=discord.Color.random()
             )
 
-            await ctx.respond(embed=localembed)
+            return await ctx.respond(embed=localembed)
 
         if cc_user[str(ctx.author.id)]["flair"] == sflair:
             try:
@@ -392,7 +392,7 @@ async def connect(ctx: ApplicationContext, username: str):
 
     except cc.ChessDotComError:
         localembed = discord.Embed(
-            title=f"User `{username}` does not exist or account has been closed.",
+            title=f"User `{username}` does not exist.",
             description="If this is inaccurate, please report this bug to **xyrenchess**.",
             color=discord.Color.random()
         )
@@ -595,8 +595,17 @@ async def verify(ctx: ApplicationContext, action: str):
 @option(name="format", description="Specify a format.", type=str, choices=["daily", "rapid", "blitz", "bullet"], default=None)
 async def viewprofile(ctx: ApplicationContext, user: str, format: str):
     await ctx.defer(invisible=True)
-    uinfo = cc.get_player_profile(user).json
-    ustats = cc.get_player_stats(user).json
+    try:
+        uinfo = cc.get_player_profile(user).json
+        ustats = cc.get_player_stats(user).json
+    except:
+        localembed = discord.Embed(
+            title="User does not exist.",
+            description="",
+            color=discord.Color.random()
+        )
+
+        return await ctx.respond(embed=localembed)
 
     uname = uinfo["player"]["username"]
     since = uinfo["player"]["joined"]
@@ -824,7 +833,7 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
             color=discord.Color.random()
         )
 
-        await ctx.respond(embed=localembed)
+        return await ctx.respond(embed=localembed)
 
     # status = uinfo["player"]["status"]
     uname = uinfo["player"]["username"]
@@ -1069,7 +1078,6 @@ async def profile(ctx: ApplicationContext, user: discord.User, format: str):
         localembed.set_footer(text=f"User id: {uid}")
 
         await ctx.respond(embed=localembed, file=chart)
-
 
 
 @client.slash_command(
@@ -1376,7 +1384,7 @@ async def progressgraph(ctx: ApplicationContext, user: discord.User, format: str
             color=discord.Color.random()
         )
 
-        await ctx.respond(embed=localembed)
+        return await ctx.respond(embed=localembed)
 
     uname = uinfo['player']['username']
 
@@ -1730,7 +1738,8 @@ async def puzzlelc(ctx: ApplicationContext, id: str):
             try:
                 pz = berserker.puzzles.get(id)
             except:
-                return await ctx.respond(f"Puzzle {id} does not exist!")
+                localembed = discord.Embed(title=f"Puzzle {id} does not exist!")
+                return await ctx.respond(embed=localembed)
 
         rating = pz['puzzle']['rating']
 
