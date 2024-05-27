@@ -82,5 +82,11 @@
         "description": "Deep analyse a position with the given FEN. (Warning: Takes a lot longer than usual analysis (6 minutes on depth 40 test), do not use this unless position is super complicated.) Specify a `depth` for Stockfish.",
         "args": "<`fen`>, `depth (default: 30)`",
         "disabled": "false"
+    },
+    "game": {
+        "name": "StartGame",
+        "description": "Start a chess game with Stockfish or another user. Leave `black_player` blank to play against Stockfish or specify a user the `black_player`.",
+        "args": "`black_player (default: None)`",
+        "disabled": "false"
     }
 }
