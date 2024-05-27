@@ -72,9 +72,15 @@
         "disabled": "false"
     },
     "analyse": {
-        "name": "AnalysePosition",
-        "description": "Analyse a position with the given FEN. Specify a `depth` for Stockfish. Specify a move `number` for engine moves.",
-        "args": "<`fen`>, `depth (default: 15)`, `number (default: 3)`",
+        "name": "Analysis",
+        "description": "Analyse a position with the given FEN. Specify a `depth` for Stockfish. Specify a number of `lines` for engine lines.",
+        "args": "<`fen`>, `depth (default: 15)`, `lines (default: 3)`",
+        "disabled": "false"
+    },
+    "deepanalyse": {
+        "name": "DeepAnalysis",
+        "description": "Deep analyse a position with the given FEN. (Warning: Takes a lot longer than usual analysis (6 minutes on depth 40 test), do not use this unless position is super complicated.) Specify a `depth` for Stockfish.",
+        "args": "<`fen`>, `depth (default: 30)`",
         "disabled": "false"
     }
 }
