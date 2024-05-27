@@ -2168,12 +2168,11 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
         return finished
 
     async def wenginemoves():
-        global count
-        count = count + 1
-
         msg = await client.wait_for("message", check=check_white)
 
         if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
+            global count
+            count = count + 1
             try:
                 umove = board.push_san(msg.content) # your move
                 movelist.append(f"{count}.")
@@ -2252,12 +2251,12 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 return await blacksm()
 
     async def wusermoves():
-        global count
-        count = count + 1
-
         msg = await client.wait_for("message", check=check_white)
 
         if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
+            global count
+            count = count + 1
+
             try:
                 umove = board.push_san(msg.content) # whites move
                 movelist.append(f"{count}.")
