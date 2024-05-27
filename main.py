@@ -17,6 +17,7 @@ import urllib.request
 import time
 import aspose.words as aw
 
+from datetime import datetime
 from typing import Union
 from discord import option, ApplicationContext
 from discord.ext import commands
@@ -115,6 +116,7 @@ flairs = [
 if not os.path.isdir("db"):
     os.mkdir("db")
     os.mkdir("db/cache")
+    os.mkdir("db/game_archive")
 
 if not os.path.isfile("db/chesscom_users.json"):
     with open("db/chesscom_users.json", 'x', encoding="utf-8") as f:
@@ -197,6 +199,7 @@ async def on_message(message: discord.Message):
                 remove_tree("db")
                 os.mkdir("db")
                 os.mkdir("db/cache")
+                os.mkdir("db/game_archive")
 
                 print("[main/!wipe] Wiped all data.")
 
@@ -224,7 +227,6 @@ async def on_message(message: discord.Message):
 
         else:
             print(f"[main/!recover] User {message.author.name} ({message.author.id}) does not have permission to trigger !recover.")
-
     else:
         pass
 
@@ -1627,8 +1629,8 @@ async def puzzlerandom(ctx: ApplicationContext):
 )
 @option(name="fen", description="Specify position with FEN.", type=str)
 @option(name="depth", description="Specify engine's depth.", type=int, choices=[15, 20, 25], default=15)
-@option(name="number", description="Specify how many engine moves to show.", type=int, choices=[3, 5, 8], default=3)
-async def analyse(ctx: ApplicationContext, fen: str, depth: str, number: int):
+@option(name="lines", description="Specify how many engine moves to show. (p.s. 8 lines with 25 depths would take longer to analyse.)", type=int, choices=[3, 5, 8], default=3)
+async def analyse(ctx: ApplicationContext, fen: str, depth: int, lines: int):
     await ctx.defer(invisible=True)
     if commands_db["analyse"]["disabled"] == 'true':
         return await ctx.respond("This command is temporarily disabled!")
@@ -1636,12 +1638,114 @@ async def analyse(ctx: ApplicationContext, fen: str, depth: str, number: int):
         try:
             board = chess.Board(fen)
         except:
-            return await ctx.respond("Invalid FEN position!")
+            localembed = discord.Embed(title=f"Invalid FEN position!: {fen}")
+            return await ctx.respond(embed=localembed)
 
         stockfish.set_depth(depth)
         stockfish.set_fen_position(fen)
 
-        best = stockfish.get_top_moves(number)
+        best = stockfish.get_top_moves(lines)
+        ev0 = stockfish.get_evaluation()
+
+        if fen.split()[1] == "w":
+            boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+            localembed = discord.Embed(
+                title="__Evaluation (_White_ to move):__",
+                description=f'Analysing position {fen}',
+                color=discord.Color.random()
+            )
+
+        else:
+            boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+            localembed = discord.Embed(
+                title="__Evaluation (_Black_ to move):__",
+                description=f'Analysing position {fen}',
+                color=discord.Color.random()
+            )
+
+        f = open("db/cache/position.svg", "w")
+        f.write(boardsvg)
+        f.close()
+
+        doc = aw.Document()
+        builder = aw.DocumentBuilder(doc)
+        shape = builder.insert_image("db/cache/position.svg")
+
+        global log
+        log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+        shape.get_shape_renderer().save(f"db/cache/eval{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+
+        file = discord.File(f"db/cache/eval{log}.png", filename=f"eval{log}.png")
+        localembed.set_image(url=f"attachment://eval{log}.png")
+
+        if ev0["type"] == "cp":
+            ev = ev0["value"]/100
+        else:
+            if ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "b":
+                ev = "M0"
+            elif ev0["value"] == 0 and board.is_checkmate() and fen.split()[1] == "w":
+                ev = "-M0"
+            else:
+                ev = f"M{ev0['value']}"
+
+        if ev == "M0":
+            localembed.add_field(name="__Eval:__", value="_White_ won by Checkmate", inline=False)
+        elif ev == "-M0":
+            localembed.add_field(name="__Eval:__", value="_Black_ won by Checkmate", inline=False)
+        else:
+            if board.is_stalemate():
+                localembed.add_field(name="__Eval:__", value="Draw by Stalemate", inline=False)
+            elif board.is_insufficient_material():
+                localembed.add_field(name="__Eval:__", value="Draw by Insufficient material", inline=False)
+            elif board.is_fifty_moves():
+                localembed.add_field(name="__Eval:__", value="Draw by 50 move rule", inline=False)
+            else:
+                localembed.add_field(name="__Eval:__", value=ev, inline=False)
+
+        if len(best) == 0:
+            localembed.add_field(name="", value='', inline=False)
+        else:
+            localembed.add_field(name="__Top engine moves:__", value='', inline=False)
+
+        for i in best:
+            if i["Mate"] == None:
+                if i["Centipawn"] > 0:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_White_ has the advantage of {i['Centipawn']/100}", inline=False)
+                elif i["Centipawn"] < 0:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"_Black_ has the advantage of {i['Centipawn']/100*-1}", inline=False)
+                else:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Position is equal ({i['Centipawn']/100})", inline=False)
+
+            else:
+                if i["Mate"] > 0:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']} by _White_", inline=False)
+                else:
+                    localembed.add_field(name=board.san(chess.Move.from_uci(i["Move"])), value=f"Mate in {i['Mate']*-1} by _Black_", inline=False)
+
+        await ctx.respond(embed=localembed, file=file)
+
+
+@client.slash_command(
+    name="deepanalyse",
+    description="Deep analyse a position with the given FEN."
+)
+@option(name="fen", description="Specify position with FEN.", type=str)
+@option(name="depth", description="Specify engine's depth.", type=int, choices=[30, 35, 40], default=30)
+async def deepanalyse(ctx: ApplicationContext, fen: str, depth: int):
+    await ctx.defer(invisible=True)
+    if commands_db["analyse"]["disabled"] == 'true':
+        return await ctx.respond("This command is temporarily disabled!")
+    else:
+        try:
+            board = chess.Board(fen)
+        except:
+            localembed = discord.Embed(title=f"Invalid FEN position!: {fen}")
+            return await ctx.respond(embed=localembed)
+
+        stockfish.set_depth(depth)
+        stockfish.set_fen_position(fen)
+
+        best = stockfish.get_top_moves(3)
         ev0 = stockfish.get_evaluation()
 
         if fen.split()[1] == "w":
@@ -1880,11 +1984,272 @@ async def puzzlelc(ctx: ApplicationContext, id: str):
                 return await moves()
 
 
+@client.slash_command(
+    name="game",
+    description="Start a chess game with Stockfish or another user."
+)
+@option(name="black_player", description="Specify a player to play as Black... or you can play with Stockfish!", type=discord.User, default=None)
+async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User):
+    await ctx.defer(invisible=True)
+    board = chess.Board("7k/8/3B2K1/7N/8/8/8/8 w - - 98 50")
 
+    gameid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
 
+    global count, finished
+    finished = False
+    movelist = []
+    count = 0
 
+    if black_player == None:
+        localembed = discord.Embed(
+            title=f"Game {gameid}",
+            description=f"{ctx.author.name} VS Stockfish 15",
+            color=discord.Color.random()
+        )
+        localembed.add_field(name='', value='', inline=False)
+    elif ctx.author.id == black_player.id:
+        localembed = discord.Embed(
+            title=f"You cant play yourself!",
+            description=f"I thought chess players are intelligent...",
+            color=discord.Color.random()
+        )
+        return ctx.respond(embed=localembed)
+    else:
+        localembed = discord.Embed(
+            title=f"Game {gameid}",
+            description=f"{ctx.author.name} VS {black_player.name}",
+            color=discord.Color.random()
+        )
+        localembed.add_field(name='', value='', inline=False)
 
+    def gensvg():
+        if board.fen().split()[1] == "w":
+            boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+        else:
+            boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
 
+        f = open("db/cache/game.svg", "w")
+        f.write(boardsvg)
+        f.close()
+
+        doc = aw.Document()
+        builder = aw.DocumentBuilder(doc)
+        shape = builder.insert_image("db/cache/game.svg")
+
+        global log
+        log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+        shape.get_shape_renderer().save(f"db/cache/game{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+
+    def get_best_move():
+        stockfish.set_fen_position(board.fen())
+        best = stockfish.get_best_move()
+        return best
+
+    def check_white(m):
+        return m.channel == ctx.channel and m.author.id == ctx.author.id
+
+    def check_black(m):
+        return m.channel == ctx.channel and m.author.id == black_player.id
+
+    def check_end():
+        global finished, termin, res
+        if board.is_checkmate():
+            if board.fen().split()[1] == "w":
+                termin = "Black won by checkmate"
+                res = "0-1"
+            else:
+                termin = "White won by checkmate"
+                res = "1-0"
+
+            finished = True
+
+        elif board.is_stalemate():
+            termin = "Game drawn by stalemate"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_repetition():
+            termin = "Game drawn by repetition"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_insufficient_material():
+            termin = "Game drawn by insufficient material"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_fifty_moves():
+            termin = "Game drawn by 50-move rule"
+            res = "1/2-1/2"
+            finished = True
+        else:
+            termin = ""
+            res = ""
+
+        movelist.append(f"{res}")
+        print(termin, res)
+
+        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
+            f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "Stockfish 15"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+            """)
+        f.close()
+
+        return finished
+
+    async def wenginemoves():
+        global count
+        count = count + 1
+
+        msg = await client.wait_for("message", check=check_white)
+
+        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
+            try:
+                umove = board.push_san(msg.content) # your move
+                movelist.append(f"{count}.")
+                movelist.append(msg.content)
+
+                try:
+                    move = get_best_move()
+                    movelist.append(board.san(chess.Move.from_uci(move)))
+                    board.push_san(move) # bots response
+
+                except TypeError: # white mated black (x. Bh5# NoneType)
+                    pass
+
+                localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+
+                gensvg()
+                file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+                localembed.set_image(url=f"attachment://game{log}.png")
+
+                finished = check_end()
+                if finished:
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.respond(embed=localembed, file=file)
+                    return finished
+                else:
+                    await ctx.respond(embed=localembed, file=file)
+                    return await wenginemoves()
+
+            except chess.InvalidMoveError:
+                await ctx.respond("Invalid move!")
+                return await wenginemoves()
+
+            except chess.IllegalMoveError:
+                await ctx.respond("Illegal move!")
+                return await wenginemoves()
+
+            except chess.AmbiguousMoveError:
+                await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                return await wenginemoves()
+
+    async def blacksm():
+        await ctx.send(f"<@{black_player.id}> Your move!")
+        msg = await client.wait_for("message", check=check_black)
+
+        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
+            try:
+                umove = board.push_san(msg.content) # blacks move
+                movelist.append(msg.content)
+
+                localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+
+                gensvg()
+                file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+                localembed.set_image(url=f"attachment://game{log}.png")
+
+                finished = check_end()
+                if finished:
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.respond(embed=localembed, file=file)
+                    return finished
+                else:
+                    await ctx.respond(embed=localembed, file=file)
+                    return await wusermoves()
+
+            except chess.InvalidMoveError:
+                await ctx.respond("Invalid move!")
+                return await blacksm()
+
+            except chess.IllegalMoveError:
+                await ctx.respond("Illegal move!")
+                return await blacksm()
+
+            except chess.AmbiguousMoveError:
+                await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                return await blacksm()
+
+    async def wusermoves():
+        global count
+        count = count + 1
+
+        await ctx.send(f"<@{ctx.author.id}> Your move!")
+        msg = await client.wait_for("message", check=check_white)
+
+        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
+            try:
+                umove = board.push_san(msg.content) # whites move
+                movelist.append(f"{count}.")
+                movelist.append(msg.content)
+
+                localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+
+                gensvg()
+                file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+                localembed.set_image(url=f"attachment://game{log}.png")
+
+                finished = check_end()
+                if finished:
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.respond(embed=localembed, file=file)
+                    return finished
+                else:
+                    await ctx.respond(embed=localembed, file=file)
+                    return await blacksm()
+
+            except chess.InvalidMoveError:
+                await ctx.respond("Invalid move!")
+                return await wusermoves()
+
+            except chess.IllegalMoveError:
+                await ctx.respond("Illegal move!")
+                return await wusermoves()
+
+            except chess.AmbiguousMoveError:
+                await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                return await wusermoves()
+
+    gensvg()
+    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+    localembed.set_image(url=f"attachment://game{log}.png")
+    localembed.set_footer(text=f"Game by {ctx.author.id}")
+
+    await ctx.respond(embed=localembed, file=file)
+
+    while not finished:
+        if black_player == None:
+            finished = await wenginemoves()
+            print(finished)
+        else:
+            finished = await wusermoves()
+            print(finished)
 
 
 
