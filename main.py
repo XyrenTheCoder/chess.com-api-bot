@@ -2140,6 +2140,120 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
         return finished
 
+    def abort(user: discord.User):
+        global finished, termin, res, movelist
+        if user.id == ctx.author.id: # white aborted
+            termin = "Game aborted"
+            res = "*"
+        else: # black aborted
+            termin = "Game aborted"
+            res = "*"
+
+            finished = True
+
+        movelist.append(f"{res}")
+        movelist = list(filter(None, movelist))
+
+        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
+            if black_player == None:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "Stockfish 15"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            else:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "{black_player.name}"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            f.close()
+
+        return finished
+
+    def resign(user: discord.User):
+        global finished, termin, res, movelist
+        if user.id == ctx.author.id: # white resigned
+            termin = "Black won by resignation"
+            res = "0-1"
+        else: # black resigned
+            termin = "White won by resignation"
+            res = "1-0"
+
+            finished = True
+
+        movelist.append(f"{res}")
+        movelist = list(filter(None, movelist))
+
+        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
+            if black_player == None:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "Stockfish 15"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            else:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "{black_player.name}"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            f.close()
+
+        return finished
+
     async def wenginemoves():
         msg = await client.wait_for("message", check=check_white)
 
@@ -2205,8 +2319,38 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                     return await wenginemoves()
             else:
                 return await wenginemoves()
-        except:
-            return await wenginemoves()
+        except AttributeError:
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            if msg.content == "&abort":
+                if count < 3: # abort only works within 2 moves
+                    finished = abort(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Aborted the game!")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+                else:
+                    await ctx.respond(f"<@{ctx.author.id}> You can only abort within first 2 moves!")
+                    return await wenginemoves()
+
+            elif msg.content == "&resign":
+                    finished = resign(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Resigned! :flag_white:")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+            else:
+                return await wenginemoves()
 
     async def blacksm():
         msg1 = await client.wait_for("message", check=check_black)
@@ -2258,8 +2402,38 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                     return await blacksm()
             else:
                 return await blacksm()
-        except:
-            return await blacksm()
+        except AttributeError:
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            if msg1.content == "&abort":
+                if count < 3: # abort only works within 2 moves
+                    finished = abort(black_player)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{black_player.id}> Aborted the game!")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+                else:
+                    await ctx.respond(f"<@{black_player.id}> You can only abort within first 2 moves!")
+                    return await blacksm()
+
+            elif msg1.content == "&resign":
+                    finished = resign(black_player)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{black_player.id}> Resigned! :flag_white:")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+            else:
+                return await blacksm()
 
     async def wusermoves():
         msg0 = await client.wait_for("message", check=check_white)
@@ -2320,8 +2494,38 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                     return await wusermoves()
             else:
                 return await wusermoves()
-        except:
-            return await wusermoves()
+        except AttributeError:
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            if msg0.content == "&abort":
+                if count < 3: # abort only works within 2 moves
+                    finished = abort(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Aborted the game!")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+                else:
+                    await ctx.respond(f"<@{ctx.author.id}> You can only abort within first 2 moves!")
+                    return await wusermoves()
+
+            elif msg0.content == "&resign":
+                    finished = resign(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Resigned! :flag_white:")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+            else:
+                return await wusermoves()
 
     if black_player == client.user:
         localembed = discord.Embed(title="I am busy playing on Chess.com and Lichess! Maybe next time...")
@@ -2524,6 +2728,120 @@ async def chessinmywayto1600(ctx: ApplicationContext, black_player: discord.User
 
         return finished
 
+    def abort(user: discord.User):
+        global finished, termin, res, movelist
+        if user.id == ctx.author.id: # white aborted
+            termin = "Game aborted"
+            res = "*"
+        else: # black aborted
+            termin = "Game aborted"
+            res = "*"
+
+            finished = True
+
+        movelist.append(f"{res}")
+        movelist = list(filter(None, movelist))
+
+        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
+            if black_player == None:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "Stockfish 15"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            else:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "{black_player.name}"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            f.close()
+
+        return finished
+
+    def resign(user: discord.User):
+        global finished, termin, res, movelist
+        if user.id == ctx.author.id: # white resigned
+            termin = "Black won by resignation"
+            res = "0-1"
+        else: # black resigned
+            termin = "White won by resignation"
+            res = "1-0"
+
+            finished = True
+
+        movelist.append(f"{res}")
+        movelist = list(filter(None, movelist))
+
+        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
+            if black_player == None:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "Stockfish 15"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            else:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "{black_player.name}"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            f.close()
+
+        return finished
+
     async def wenginemoves():
         msg = await client.wait_for("message", check=check_white)
 
@@ -2584,8 +2902,37 @@ async def chessinmywayto1600(ctx: ApplicationContext, black_player: discord.User
                     return await wenginemoves()
             else:
                 return await wenginemoves()
-        except:
-            return await wenginemoves()
+
+        except AttributeError:
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            if msg.content == "&abort":
+                if count < 3: # abort only works within 2 moves
+                    finished = abort(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Aborted the game!")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+
+                    return finished
+                else:
+                    await ctx.respond(f"<@{ctx.author.id}> You can only abort within first 2 moves!")
+                    return await wenginemoves()
+
+            elif msg.content == "&resign":
+                    finished = resign(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Resigned! :flag_white:")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+
+                    return finished
+            else:
+                return await wenginemoves()
 
     async def blacksm():
         msg1 = await client.wait_for("message", check=check_black)
@@ -2631,8 +2978,38 @@ async def chessinmywayto1600(ctx: ApplicationContext, black_player: discord.User
                     return await blacksm()
             else:
                 return await blacksm()
-        except:
-            return await blacksm()
+        except AttributeError:
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            if msg1.content == "&abort":
+                if count < 3: # abort only works within 2 moves
+                    finished = abort(black_player)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{black_player.id}> Aborted the game!")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+                else:
+                    await ctx.respond(f"<@{black_player.id}> You can only abort within first 2 moves!")
+                    return await wenginemoves()
+
+            elif msg1.content == "&resign":
+                    finished = resign(black_player)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{black_player.id}> Resigned! :flag_white:")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+            else:
+                return await blacksm()
 
     async def wusermoves():
         msg0 = await client.wait_for("message", check=check_white)
@@ -2688,8 +3065,38 @@ async def chessinmywayto1600(ctx: ApplicationContext, black_player: discord.User
                     return await wusermoves()
             else:
                 return await wusermoves()
-        except:
-            return await wusermoves()
+        except AttributeError:
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            if msg0.content == "&abort":
+                if count < 3: # abort only works within 2 moves
+                    finished = abort(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Aborted the game!")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+                else:
+                    await ctx.respond(f"<@{ctx.author.id}> You can only abort within first 2 moves!")
+                    return await wenginemoves()
+
+            elif msg0.content == "&resign":
+                    finished = resign(ctx.author)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                    await ctx.edit(embed=localembed, file=file)
+                    await ctx.respond(f"<@{ctx.author.id}> Resigned! :flag_white:")
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
+                    return finished
+            else:
+                return await wusermoves()
 
     if black_player == client.user:
         localembed = discord.Embed(title="I am busy playing on Chess.com and Lichess! Maybe next time...")
