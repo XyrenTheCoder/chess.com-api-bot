@@ -1993,7 +1993,6 @@ async def puzzlelc(ctx: ApplicationContext, id: str):
             except:
                 return await moves()
 
-
 @client.slash_command(
     name="game",
     description="Start a chess game with Stockfish or another user."
@@ -2061,7 +2060,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
     def check_black(m):
         return m.channel == ctx.channel and m.author.id == black_player.id
 
-    def check_end_e():
+    def check_end():
         global finished, termin, res, movelist
         if board.is_checkmate():
             if board.fen().split()[1] == "w":
@@ -2097,7 +2096,8 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
         movelist = list(filter(None, movelist))
 
         with open(f"db/game_archive/{gameid}.pgn", "w") as f:
-            f.write(f"""
+            if black_player == None:
+                f.write(f"""
 [Event "Live Chess"]
 [Site "Played with Blue#4895 Discord Bot"]
 [Date "{datetime.today().strftime('%Y.%m.%d')}"]
@@ -2114,48 +2114,9 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 [Termination "{termin}"]
 
 {' '.join(movelist)}
-            """)
-        f.close()
-
-        return finished
-
-    def check_end_u():
-        global finished, termin, res, movelist
-        if board.is_checkmate():
-            if board.fen().split()[1] == "w":
-                termin = "Black won by checkmate"
-                res = "0-1"
+                """)
             else:
-                termin = "White won by checkmate"
-                res = "1-0"
-
-            finished = True
-
-        elif board.is_stalemate():
-            termin = "Game drawn by stalemate"
-            res = "1/2-1/2"
-            finished = True
-        elif board.is_repetition():
-            termin = "Game drawn by repetition"
-            res = "1/2-1/2"
-            finished = True
-        elif board.is_insufficient_material():
-            termin = "Game drawn by insufficient material"
-            res = "1/2-1/2"
-            finished = True
-        elif board.is_fifty_moves():
-            termin = "Game drawn by 50-move rule"
-            res = "1/2-1/2"
-            finished = True
-        else:
-            termin = ""
-            res = ""
-
-        movelist.append(f"{res}")
-        movelist = list(filter(None, movelist))
-
-        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
-            f.write(f"""
+                f.write(f"""
 [Event "Live Chess"]
 [Site "Played with Blue#4895 Discord Bot"]
 [Date "{datetime.today().strftime('%Y.%m.%d')}"]
@@ -2172,8 +2133,8 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 [Termination "{termin}"]
 
 {' '.join(movelist)}
-            """)
-        f.close()
+                """)
+            f.close()
 
         return finished
 
@@ -2205,11 +2166,14 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
                 localembed.set_image(url=f"attachment://game{log}.png")
 
-                finished = check_end_e()
+                finished = check_end()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
                     await msg.delete()
                     await ctx.edit(embed=localembed, file=file)
+
+                    globals()["stop"+str(ctx.author.id)] = False
+
                     return finished
                 else:
                     await msg.delete()
@@ -2233,6 +2197,8 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 await c.delete(delay=1)
                 await msg.delete(delay=1)
                 return await wenginemoves()
+        else:
+            return await wenginemoves()
 
     async def blacksm():
         msg1 = await client.wait_for("message", check=check_black)
@@ -2249,7 +2215,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
                 localembed.set_image(url=f"attachment://game{log}.png")
 
-                finished = check_end_u()
+                finished = check_end()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
                     await msg1.delete()
@@ -2277,12 +2243,13 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 await b.delete(delay=1)
                 await msg1.delete(delay=1)
                 return await blacksm()
+        else:
+            return await blacksm()
 
     async def wusermoves():
         msg0 = await client.wait_for("message", check=check_white)
 
         if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg0.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg0.content):
-
             try:
                 umove = board.push_san(msg0.content) # whites move
 
@@ -2299,11 +2266,15 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
                 localembed.set_image(url=f"attachment://game{log}.png")
 
-                finished = check_end_u()
+                finished = check_end()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
                     await msg0.delete()
                     await ctx.edit(embed=localembed, file=file)
+
+                    globals()["stop"+str(ctx.author.id)] = False
+                    globals()["stop"+str(black_player.id)] = False
+
                     return finished
                 else:
                     await msg0.delete()
@@ -2328,21 +2299,62 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 await a.delete(delay=1)
                 await msg0.delete(delay=1)
                 return await wusermoves()
+        else:
+            return await wusermoves()
 
-    gensvg()
-    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+    if black_player == client.user:
+        localembed = discord.Embed(title="I am busy playing on Chess.com and Lichess! Maybe next time...")
+        return await ctx.respond(embed=localembed)
 
-    localembed.set_image(url=f"attachment://game{log}.png")
-    localembed.set_footer(text=f"Game by {ctx.author.id}")
+    elif black_player == None: # playing with engine
+        try:
+            ustop = globals()["stop"+str(ctx.author.id)]
+        except:
+            ustop = False
 
-    await ctx.respond(embed=localembed, file=file)
+        if ustop != True:
+            globals()["stop"+str(ctx.author.id)] = True
 
-    if black_player == None:
-        finished = await wenginemoves()
-        print(finished)
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            localembed.set_footer(text=f"Game by {ctx.author.id}")
+
+            await ctx.respond(embed=localembed, file=file)
+            finished = await wenginemoves()
+
+        else:
+            return await ctx.respond(f"<@{ctx.author.id}>, please finish your previous game first before starting a new one!")
+
     else:
-        finished = await wusermoves()
-        print(finished)
+        try:
+            ustop0 = globals()["stop"+str(ctx.author.id)]
+        except:
+            ustop0 = False
+        try:
+            ustop1 = globals()["stop"+str(black_player.id)]
+        except:
+            ustop1 = False
+
+        if ustop0 != True and ustop1 != True: # both players are available
+            globals()["stop"+str(ctx.author.id)] = True
+            globals()["stop"+str(black_player.id)] = True
+
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            localembed.set_footer(text=f"Game by {ctx.author.id}")
+
+            await ctx.respond(embed=localembed, file=file)
+            finished = await wusermoves()
+
+        else: # at least one of the players has an ongoing game
+            if ustop0 == True:
+                return await ctx.respond(f"<@{ctx.author.id}>, please finish your previous game first before starting a new one!")
+            if ustop1 == True:
+                return await ctx.respond(f"<@{black_player.id}> has an ongoing game! Please wait until their game is finished before starting a new one with them.")
 
 
 
