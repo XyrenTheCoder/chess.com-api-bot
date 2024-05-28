@@ -85,7 +85,7 @@
     },
     "game": {
         "name": "StartGame",
-        "description": "Start a chess game with Stockfish or another user. Leave `black_player` blank to play against Stockfish or specify a user the `black_player`.",
+        "description": "Start a chess game with Stockfish or another user. Leave `black_player` blank to play against Stockfish or specify a user to play as Black.",
         "args": "`black_player (default: None)`",
         "disabled": "false"
     }
