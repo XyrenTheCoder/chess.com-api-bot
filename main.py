@@ -1993,14 +1993,16 @@ async def puzzlelc(ctx: ApplicationContext, id: str):
             except:
                 return await moves()
 
+
 @client.slash_command(
     name="game",
     description="Start a chess game with Stockfish or another user."
 )
 @option(name="black_player", description="Specify a player to play as Black... or you can play with Stockfish!", type=discord.User, default=None)
-async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User):
+@option(name="fen", description="From position.", type=str, default="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User, fen: str):
     await ctx.defer(invisible=True)
-    board = chess.Board()
+    board = chess.Board(fen)
 
     gameid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
 
@@ -2141,165 +2143,184 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
     async def wenginemoves():
         msg = await client.wait_for("message", check=check_white)
 
-        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
-            try:
-                umove = board.push_san(msg.content) # your move
+        try:
+            r = re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?|O-O|0-0|O-O-O|0-0-0', msg.content).group(0)
+            m = msg.content.replace(r, '')
 
-                global count
-                count = count + 1
-
-                movelist.append(f"{count}.")
-                movelist.append(msg.content)
-
+            if ' ' not in msg.content and m == '':
                 try:
-                    move = get_best_move()
-                    movelist.append(board.san(chess.Move.from_uci(move)))
-                    board.push_san(move) # bots response
+                    umove = board.push_san(msg.content) # your move
 
-                except TypeError: # white mated black (x. Bh5# NoneType)
-                    pass
+                    global count
+                    count = count + 1
 
-                localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+                    movelist.append(f"{count}.")
+                    movelist.append(msg.content)
 
-                gensvg()
-                file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+                    try:
+                        move = get_best_move()
+                        movelist.append(board.san(chess.Move.from_uci(move)))
+                        board.push_san(move) # bots response
 
-                localembed.set_image(url=f"attachment://game{log}.png")
+                    except TypeError: # white mated black (x. Bh5# NoneType)
+                        pass
 
-                finished = check_end()
-                if finished:
-                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
-                    await msg.delete()
-                    await ctx.edit(embed=localembed, file=file)
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
 
-                    globals()["stop"+str(ctx.author.id)] = False
+                    gensvg()
+                    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
-                    return finished
-                else:
-                    await msg.delete()
-                    await ctx.edit(embed=localembed, file=file)
+                    localembed.set_image(url=f"attachment://game{log}.png")
+
+                    finished = check_end()
+                    if finished:
+                        localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                        await msg.delete()
+                        await ctx.edit(embed=localembed, file=file)
+
+                        globals()["stop"+str(ctx.author.id)] = False
+
+                        return finished
+                    else:
+                        await msg.delete()
+                        await ctx.edit(embed=localembed, file=file)
+                        return await wenginemoves()
+
+                except chess.InvalidMoveError:
+                    c = await ctx.respond("Invalid move!")
+                    await c.delete(delay=1)
+                    await msg.delete(delay=1)
                     return await wenginemoves()
 
-            except chess.InvalidMoveError:
-                c = await ctx.respond("Invalid move!")
-                await c.delete(delay=1)
-                await msg.delete(delay=1)
-                return await wenginemoves()
+                except chess.IllegalMoveError:
+                    c = await ctx.respond("Illegal move!")
+                    await c.delete(delay=1)
+                    await msg.delete(delay=1)
+                    return await wenginemoves()
 
-            except chess.IllegalMoveError:
-                c = await ctx.respond("Illegal move!")
-                await c.delete(delay=1)
-                await msg.delete(delay=1)
+                except chess.AmbiguousMoveError:
+                    c = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                    await c.delete(delay=1)
+                    await msg.delete(delay=1)
+                    return await wenginemoves()
+            else:
                 return await wenginemoves()
-
-            except chess.AmbiguousMoveError:
-                c = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
-                await c.delete(delay=1)
-                await msg.delete(delay=1)
-                return await wenginemoves()
-        else:
+        except:
             return await wenginemoves()
 
     async def blacksm():
         msg1 = await client.wait_for("message", check=check_black)
 
-        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg1.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg1.content):
-            try:
-                umove = board.push_san(msg1.content) # blacks move
-                movelist.append(msg1.content)
+        try:
+            r = re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?|O-O|0-0|O-O-O|0-0-0', msg1.content).group(0)
+            m = msg1.content.replace(r, '')
 
-                localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+            if ' ' not in msg1.content and m == '':
+                try:
+                    umove = board.push_san(msg1.content) # blacks move
+                    movelist.append(msg1.content)
 
-                gensvg()
-                file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
-                localembed.set_image(url=f"attachment://game{log}.png")
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
 
-                finished = check_end()
-                if finished:
-                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
-                    await msg1.delete()
-                    await ctx.edit(embed=localembed, file=file)
-                    return finished
-                else:
-                    await msg1.delete()
-                    await ctx.edit(embed=localembed, file=file)
-                    return await wusermoves()
+                    gensvg()
+                    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
-            except chess.InvalidMoveError:
-                b = await ctx.respond("Invalid move!")
-                await b.delete(delay=1)
-                await msg1.delete(delay=1)
+                    localembed.set_image(url=f"attachment://game{log}.png")
+
+                    finished = check_end()
+                    if finished:
+                        localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                        await msg1.delete()
+                        await ctx.edit(embed=localembed, file=file)
+                        return finished
+                    else:
+                        await msg1.delete()
+                        await ctx.edit(embed=localembed, file=file)
+                        return await wusermoves()
+
+                except chess.InvalidMoveError:
+                    b = await ctx.respond("Invalid move!")
+                    await b.delete(delay=1)
+                    await msg1.delete(delay=1)
+                    return await blacksm()
+
+                except chess.IllegalMoveError:
+                    b = await ctx.respond("Illegal move!")
+                    await b.delete(delay=1)
+                    await msg1.delete(delay=1)
+                    return await blacksm()
+
+                except chess.AmbiguousMoveError:
+                    b = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                    await b.delete(delay=1)
+                    await msg1.delete(delay=1)
+                    return await blacksm()
+            else:
                 return await blacksm()
-
-            except chess.IllegalMoveError:
-                b = await ctx.respond("Illegal move!")
-                await b.delete(delay=1)
-                await msg1.delete(delay=1)
-                return await blacksm()
-
-            except chess.AmbiguousMoveError:
-                b = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
-                await b.delete(delay=1)
-                await msg1.delete(delay=1)
-                return await blacksm()
-        else:
+        except:
             return await blacksm()
 
     async def wusermoves():
         msg0 = await client.wait_for("message", check=check_white)
 
-        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg0.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg0.content):
-            try:
-                umove = board.push_san(msg0.content) # whites move
+        try:
+            r = re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?|O-O|0-0|O-O-O|0-0-0', msg0.content).group(0)
+            m = msg0.content.replace(r, '')
 
-                global count
-                count = count + 1
+            if ' ' not in msg0.content and m == '':
+                try:
+                    umove = board.push_san(msg0.content) # whites move
 
-                movelist.append(f"{count}.")
-                movelist.append(msg0.content)
+                    global count
+                    count = count + 1
 
-                localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+                    movelist.append(f"{count}.")
+                    movelist.append(msg0.content)
 
-                gensvg()
-                file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
 
-                localembed.set_image(url=f"attachment://game{log}.png")
+                    gensvg()
+                    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
-                finished = check_end()
-                if finished:
-                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
-                    await msg0.delete()
-                    await ctx.edit(embed=localembed, file=file)
+                    localembed.set_image(url=f"attachment://game{log}.png")
 
-                    globals()["stop"+str(ctx.author.id)] = False
-                    globals()["stop"+str(black_player.id)] = False
+                    finished = check_end()
+                    if finished:
+                        localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                        await msg0.delete()
+                        await ctx.edit(embed=localembed, file=file)
 
-                    return finished
-                else:
-                    await msg0.delete()
-                    await ctx.edit(embed=localembed, file=file)
-                    print(movelist)
-                    return await blacksm()
+                        globals()["stop"+str(ctx.author.id)] = False
+                        globals()["stop"+str(black_player.id)] = False
 
-            except chess.InvalidMoveError:
-                a = await ctx.respond("Invalid move!")
-                await a.delete(delay=1)
-                await msg0.delete(delay=1)
+                        return finished
+                    else:
+                        await msg0.delete()
+                        await ctx.edit(embed=localembed, file=file)
+                        print(movelist)
+                        return await blacksm()
+
+                except chess.InvalidMoveError:
+                    a = await ctx.respond("Invalid move!")
+                    await a.delete(delay=1)
+                    await msg0.delete(delay=1)
+                    return await wusermoves()
+
+                except chess.IllegalMoveError:
+                    a = await ctx.respond("Illegal move!")
+                    await a.delete(delay=1)
+                    await msg0.delete(delay=1)
+                    return await wusermoves()
+
+                except chess.AmbiguousMoveError:
+                    a = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                    await a.delete(delay=1)
+                    await msg0.delete(delay=1)
+                    return await wusermoves()
+            else:
                 return await wusermoves()
-
-            except chess.IllegalMoveError:
-                a = await ctx.respond("Illegal move!")
-                await a.delete(delay=1)
-                await msg0.delete(delay=1)
-                return await wusermoves()
-
-            except chess.AmbiguousMoveError:
-                a = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
-                await a.delete(delay=1)
-                await msg0.delete(delay=1)
-                return await wusermoves()
-        else:
+        except:
             return await wusermoves()
 
     if black_player == client.user:
@@ -2355,6 +2376,376 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 return await ctx.respond(f"<@{ctx.author.id}>, please finish your previous game first before starting a new one!")
             if ustop1 == True:
                 return await ctx.respond(f"<@{black_player.id}> has an ongoing game! Please wait until their game is finished before starting a new one with them.")
+
+
+@client.slash_command(
+    name="game_no_perms",
+    description="Start a chess game with Stockfish or another user. (no perms command)"
+)
+@option(name="black_player", description="Specify a player to play as Black... or you can play with Stockfish!", type=discord.User, default=None)
+@option(name="fen", description="From position.", type=str, default="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+async def chessinmywayto1600(ctx: ApplicationContext, black_player: discord.User, fen: str):
+    await ctx.defer(invisible=True)
+    board = chess.Board(fen)
+
+    gameid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+
+    global finished, movelist, count
+    finished = False
+    movelist = []
+    count = 0
+
+    if black_player == None:
+        localembed = discord.Embed(
+            title=f"Game {gameid}",
+            description=f"{ctx.author.name} VS Stockfish 15",
+            color=discord.Color.random()
+        )
+        localembed.add_field(name='', value='', inline=False)
+    elif ctx.author.id == black_player.id:
+        localembed = discord.Embed(
+            title=f"You cant play yourself!",
+            description=f"I thought chess players are intelligent...",
+            color=discord.Color.random()
+        )
+        return await ctx.respond(embed=localembed)
+    else:
+        localembed = discord.Embed(
+            title=f"Game {gameid}",
+            description=f"{ctx.author.name} VS {black_player.name}",
+            color=discord.Color.random()
+        )
+        localembed.add_field(name='', value='', inline=False)
+
+    def gensvg():
+        if board.fen().split()[1] == "w":
+            boardsvg = chess.svg.board(flipped=False, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+        else:
+            boardsvg = chess.svg.board(flipped=True, coordinates=True, board=board, size=350, colors={"square light": "#eeedd5", "square dark": "#7c945d", "square dark lastmove": "#bdc959", "square light lastmove": "#f6f595"})
+
+        f = open("db/cache/game.svg", "w")
+        f.write(boardsvg)
+        f.close()
+
+        doc = aw.Document()
+        builder = aw.DocumentBuilder(doc)
+        shape = builder.insert_image("db/cache/game.svg")
+
+        global log
+        log = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
+        shape.get_shape_renderer().save(f"db/cache/game{log}.png", aw.saving.ImageSaveOptions(aw.SaveFormat.PNG))
+
+    def get_best_move():
+        stockfish.set_fen_position(board.fen())
+        best = stockfish.get_best_move()
+        return best
+
+    def check_white(m):
+        return m.channel == ctx.channel and m.author.id == ctx.author.id
+
+    def check_black(m):
+        return m.channel == ctx.channel and m.author.id == black_player.id
+
+    def check_end():
+        global finished, termin, res, movelist
+        if board.is_checkmate():
+            if board.fen().split()[1] == "w":
+                termin = "Black won by checkmate"
+                res = "0-1"
+            else:
+                termin = "White won by checkmate"
+                res = "1-0"
+
+            finished = True
+
+        elif board.is_stalemate():
+            termin = "Game drawn by stalemate"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_repetition():
+            termin = "Game drawn by repetition"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_insufficient_material():
+            termin = "Game drawn by insufficient material"
+            res = "1/2-1/2"
+            finished = True
+        elif board.is_fifty_moves():
+            termin = "Game drawn by 50-move rule"
+            res = "1/2-1/2"
+            finished = True
+        else:
+            termin = ""
+            res = ""
+
+        movelist.append(f"{res}")
+        movelist = list(filter(None, movelist))
+
+        with open(f"db/game_archive/{gameid}.pgn", "w") as f:
+            if black_player == None:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "Stockfish 15"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            else:
+                f.write(f"""
+[Event "Live Chess"]
+[Site "Played with Blue#4895 Discord Bot"]
+[Date "{datetime.today().strftime('%Y.%m.%d')}"]
+[Round "?"]
+[White "{ctx.author.name}"]
+[Black "{black_player.name}"]
+[Result "{res}"]
+[SetUp "1"]
+[FEN "{board.fen()}"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[TimeControl "1/0"]
+[EndDate "{datetime.today().strftime('%Y.%m.%d')}"]
+[Termination "{termin}"]
+
+{' '.join(movelist)}
+                """)
+            f.close()
+
+        return finished
+
+    async def wenginemoves():
+        msg = await client.wait_for("message", check=check_white)
+
+        try:
+            r = re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?|O-O|0-0|O-O-O|0-0-0', msg.content).group(0)
+            m = msg.content.replace(r, '')
+
+            if ' ' not in msg.content and m == '':
+                try:
+                    umove = board.push_san(msg.content) # your move
+
+                    global count
+                    count = count + 1
+
+                    movelist.append(f"{count}.")
+                    movelist.append(msg.content)
+
+                    try:
+                        move = get_best_move()
+                        movelist.append(board.san(chess.Move.from_uci(move)))
+                        board.push_san(move) # bots response
+
+                    except TypeError: # white mated black (x. Bh5# NoneType)
+                        pass
+
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+
+                    gensvg()
+                    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+                    localembed.set_image(url=f"attachment://game{log}.png")
+
+                    finished = check_end()
+                    if finished:
+                        localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                        await ctx.edit(embed=localembed, file=file)
+
+                        globals()["stop"+str(ctx.author.id)] = False
+
+                        return finished
+                    else:
+                        await ctx.edit(embed=localembed, file=file)
+                        return await wenginemoves()
+
+                except chess.InvalidMoveError:
+                    c = await ctx.respond("Invalid move!")
+                    await c.delete(delay=1)
+                    return await wenginemoves()
+
+                except chess.IllegalMoveError:
+                    c = await ctx.respond("Illegal move!")
+                    await c.delete(delay=1)
+                    return await wenginemoves()
+
+                except chess.AmbiguousMoveError:
+                    c = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                    await c.delete(delay=1)
+                    return await wenginemoves()
+            else:
+                return await wenginemoves()
+        except:
+            return await wenginemoves()
+
+    async def blacksm():
+        msg1 = await client.wait_for("message", check=check_black)
+
+        try:
+            r = re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?|O-O|0-0|O-O-O|0-0-0', msg1.content).group(0)
+            m = msg1.content.replace(r, '')
+
+            if ' ' not in msg1.content and m == '':
+                try:
+                    umove = board.push_san(msg1.content) # blacks move
+                    movelist.append(msg1.content)
+
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+
+                    gensvg()
+                    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+                    localembed.set_image(url=f"attachment://game{log}.png")
+
+                    finished = check_end()
+                    if finished:
+                        localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                        await ctx.edit(embed=localembed, file=file)
+                        return finished
+                    else:
+                        await ctx.edit(embed=localembed, file=file)
+                        return await wusermoves()
+
+                except chess.InvalidMoveError:
+                    b = await ctx.respond("Invalid move!")
+                    await b.delete(delay=1)
+                    return await blacksm()
+
+                except chess.IllegalMoveError:
+                    b = await ctx.respond("Illegal move!")
+                    await b.delete(delay=1)
+                    return await blacksm()
+
+                except chess.AmbiguousMoveError:
+                    b = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                    await b.delete(delay=1)
+                    return await blacksm()
+            else:
+                return await blacksm()
+        except:
+            return await blacksm()
+
+    async def wusermoves():
+        msg0 = await client.wait_for("message", check=check_white)
+
+        try:
+            r = re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?|O-O|0-0|O-O-O|0-0-0', msg0.content).group(0)
+            m = msg0.content.replace(r, '')
+
+            if ' ' not in msg0.content and m == '':
+                try:
+                    umove = board.push_san(msg0.content) # whites move
+
+                    global count
+                    count = count + 1
+
+                    movelist.append(f"{count}.")
+                    movelist.append(msg0.content)
+
+                    localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
+
+                    gensvg()
+                    file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+                    localembed.set_image(url=f"attachment://game{log}.png")
+
+                    finished = check_end()
+                    if finished:
+                        localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
+                        await ctx.edit(embed=localembed, file=file)
+
+                        globals()["stop"+str(ctx.author.id)] = False
+                        globals()["stop"+str(black_player.id)] = False
+
+                        return finished
+                    else:
+                        await ctx.edit(embed=localembed, file=file)
+                        print(movelist)
+                        return await blacksm()
+
+                except chess.InvalidMoveError:
+                    a = await ctx.respond("Invalid move!")
+                    await a.delete(delay=1)
+                    return await wusermoves()
+
+                except chess.IllegalMoveError:
+                    a = await ctx.respond("Illegal move!")
+                    await a.delete(delay=1)
+                    return await wusermoves()
+
+                except chess.AmbiguousMoveError:
+                    a = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                    await a.delete(delay=1)
+                    return await wusermoves()
+            else:
+                return await wusermoves()
+        except:
+            return await wusermoves()
+
+    if black_player == client.user:
+        localembed = discord.Embed(title="I am busy playing on Chess.com and Lichess! Maybe next time...")
+        return await ctx.respond(embed=localembed)
+
+    elif black_player == None: # playing with engine
+        try:
+            ustop = globals()["stop"+str(ctx.author.id)]
+        except:
+            ustop = False
+
+        if ustop != True:
+            globals()["stop"+str(ctx.author.id)] = True
+
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            localembed.set_footer(text=f"Game by {ctx.author.id}")
+
+            await ctx.respond(embed=localembed, file=file)
+            finished = await wenginemoves()
+
+        else:
+            return await ctx.respond(f"<@{ctx.author.id}>, please finish your previous game first before starting a new one!")
+
+    else:
+        try:
+            ustop0 = globals()["stop"+str(ctx.author.id)]
+        except:
+            ustop0 = False
+        try:
+            ustop1 = globals()["stop"+str(black_player.id)]
+        except:
+            ustop1 = False
+
+        if ustop0 != True and ustop1 != True: # both players are available
+            globals()["stop"+str(ctx.author.id)] = True
+            globals()["stop"+str(black_player.id)] = True
+
+            gensvg()
+            file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
+
+            localembed.set_image(url=f"attachment://game{log}.png")
+            localembed.set_footer(text=f"Game by {ctx.author.id}")
+
+            await ctx.respond(embed=localembed, file=file)
+            finished = await wusermoves()
+
+        else: # at least one of the players has an ongoing game
+            if ustop0 == True:
+                return await ctx.respond(f"<@{ctx.author.id}>, please finish your previous game first before starting a new one!")
+            if ustop1 == True:
+                return await ctx.respond(f"<@{black_player.id}> has an ongoing game! Please wait until their game is finished before starting a new one with them.")
+
+
 
 
 
