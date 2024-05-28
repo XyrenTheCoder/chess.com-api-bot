@@ -2544,7 +2544,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
             file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
             localembed.set_image(url=f"attachment://game{log}.png")
-            localembed.set_footer(text=f"Game by {ctx.author.id}")
+            localembed.set_footer(text=f"Game by {ctx.author.id} | &abort to abort | &resign to resign")
 
             await ctx.respond(embed=localembed, file=file)
             finished = await wenginemoves()
@@ -2570,7 +2570,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
             file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
             localembed.set_image(url=f"attachment://game{log}.png")
-            localembed.set_footer(text=f"Game by {ctx.author.id}")
+            localembed.set_footer(text=f"Game by {ctx.author.id} | &abort to abort | &resign to resign")
 
             await ctx.respond(embed=localembed, file=file)
             finished = await wusermoves()
@@ -3115,7 +3115,7 @@ async def chessinmywayto1600(ctx: ApplicationContext, black_player: discord.User
             file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
             localembed.set_image(url=f"attachment://game{log}.png")
-            localembed.set_footer(text=f"Game by {ctx.author.id}")
+            localembed.set_footer(text=f"Game by {ctx.author.id} | &abort to abort | &resign to resign")
 
             await ctx.respond(embed=localembed, file=file)
             finished = await wenginemoves()
@@ -3141,7 +3141,7 @@ async def chessinmywayto1600(ctx: ApplicationContext, black_player: discord.User
             file = discord.File(f"db/cache/game{log}.png", filename=f"game{log}.png")
 
             localembed.set_image(url=f"attachment://game{log}.png")
-            localembed.set_footer(text=f"Game by {ctx.author.id}")
+            localembed.set_footer(text=f"Game by {ctx.author.id} | &abort to abort | &resign to resign")
 
             await ctx.respond(embed=localembed, file=file)
             finished = await wusermoves()
