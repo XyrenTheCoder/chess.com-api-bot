@@ -227,9 +227,19 @@ async def on_message(message: discord.Message):
 
         else:
             print(f"[main/!recover] User {message.author.name} ({message.author.id}) does not have permission to trigger !recover.")
+
+    elif message.content == "!wipearchive":
+        if message.author.id == 706697300872921088:
+            remove_tree("db/game_archive")
+            os.mkdir("db/game_archive")
+
+            print("[main/!wipearchive] Wiped game archive.")
+
+        else:
+            print(f"[main/!wipearchive] User {message.author.name} ({message.author.id}) does not have permission to trigger !wipearchive.")
+
     else:
         pass
-
 
 # Slash commands
 @client.slash_command(
@@ -1995,7 +2005,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
     gameid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
 
-    global count, finished
+    global finished, movelist, count
     finished = False
     movelist = []
     count = 0
@@ -2013,7 +2023,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
             description=f"I thought chess players are intelligent...",
             color=discord.Color.random()
         )
-        return ctx.respond(embed=localembed)
+        return await ctx.respond(embed=localembed)
     else:
         localembed = discord.Embed(
             title=f"Game {gameid}",
@@ -2052,7 +2062,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
         return m.channel == ctx.channel and m.author.id == black_player.id
 
     def check_end_e():
-        global finished, termin, res
+        global finished, termin, res, movelist
         if board.is_checkmate():
             if board.fen().split()[1] == "w":
                 termin = "Black won by checkmate"
@@ -2084,7 +2094,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
             res = ""
 
         movelist.append(f"{res}")
-        print(termin, res)
+        movelist = list(filter(None, movelist))
 
         with open(f"db/game_archive/{gameid}.pgn", "w") as f:
             f.write(f"""
@@ -2110,7 +2120,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
         return finished
 
     def check_end_u():
-        global finished, termin, res
+        global finished, termin, res, movelist
         if board.is_checkmate():
             if board.fen().split()[1] == "w":
                 termin = "Black won by checkmate"
@@ -2142,7 +2152,7 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
             res = ""
 
         movelist.append(f"{res}")
-        print(termin, res)
+        movelist = list(filter(None, movelist))
 
         with open(f"db/game_archive/{gameid}.pgn", "w") as f:
             f.write(f"""
@@ -2171,10 +2181,12 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
         msg = await client.wait_for("message", check=check_white)
 
         if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
-            global count
-            count = count + 1
             try:
                 umove = board.push_san(msg.content) # your move
+
+                global count
+                count = count + 1
+
                 movelist.append(f"{count}.")
                 movelist.append(msg.content)
 
@@ -2196,31 +2208,39 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 finished = check_end_e()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
-                    await ctx.respond(embed=localembed, file=file)
+                    await msg.delete()
+                    await ctx.edit(embed=localembed, file=file)
                     return finished
                 else:
-                    await ctx.respond(embed=localembed, file=file)
+                    await msg.delete()
+                    await ctx.edit(embed=localembed, file=file)
                     return await wenginemoves()
 
             except chess.InvalidMoveError:
-                await ctx.respond("Invalid move!")
+                c = await ctx.respond("Invalid move!")
+                await c.delete(delay=1)
+                await msg.delete(delay=1)
                 return await wenginemoves()
 
             except chess.IllegalMoveError:
-                await ctx.respond("Illegal move!")
+                c = await ctx.respond("Illegal move!")
+                await c.delete(delay=1)
+                await msg.delete(delay=1)
                 return await wenginemoves()
 
             except chess.AmbiguousMoveError:
-                await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                c = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                await c.delete(delay=1)
+                await msg.delete(delay=1)
                 return await wenginemoves()
 
     async def blacksm():
-        msg = await client.wait_for("message", check=check_black)
+        msg1 = await client.wait_for("message", check=check_black)
 
-        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
+        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg1.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg1.content):
             try:
-                umove = board.push_san(msg.content) # blacks move
-                movelist.append(msg.content)
+                umove = board.push_san(msg1.content) # blacks move
+                movelist.append(msg1.content)
 
                 localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
 
@@ -2232,35 +2252,45 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 finished = check_end_u()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
-                    await ctx.respond(embed=localembed, file=file)
+                    await msg1.delete()
+                    await ctx.edit(embed=localembed, file=file)
                     return finished
                 else:
-                    await ctx.respond(embed=localembed, file=file)
+                    await msg1.delete()
+                    await ctx.edit(embed=localembed, file=file)
                     return await wusermoves()
 
             except chess.InvalidMoveError:
-                await ctx.respond("Invalid move!")
+                b = await ctx.respond("Invalid move!")
+                await b.delete(delay=1)
+                await msg1.delete(delay=1)
                 return await blacksm()
 
             except chess.IllegalMoveError:
-                await ctx.respond("Illegal move!")
+                b = await ctx.respond("Illegal move!")
+                await b.delete(delay=1)
+                await msg1.delete(delay=1)
                 return await blacksm()
 
             except chess.AmbiguousMoveError:
-                await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                b = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                await b.delete(delay=1)
+                await msg1.delete(delay=1)
                 return await blacksm()
 
     async def wusermoves():
-        msg = await client.wait_for("message", check=check_white)
+        msg0 = await client.wait_for("message", check=check_white)
 
-        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg.content):
-            global count
-            count = count + 1
+        if re.match('[QKNBR]?[a-h]?[1-8]?x?[a-h][1-8](=[QNBR])?([+#])?', msg0.content) or re.match("O-O|0-0|O-O-O|0-0-0", msg0.content):
 
             try:
-                umove = board.push_san(msg.content) # whites move
+                umove = board.push_san(msg0.content) # whites move
+
+                global count
+                count = count + 1
+
                 movelist.append(f"{count}.")
-                movelist.append(msg.content)
+                movelist.append(msg0.content)
 
                 localembed.set_field_at(0, name=' '.join(movelist[-10:]), value='')
 
@@ -2272,22 +2302,31 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
                 finished = check_end_u()
                 if finished:
                     localembed.set_field_at(0, name=' '.join(movelist[-10:]), value=f"{termin}")
-                    await ctx.respond(embed=localembed, file=file)
+                    await msg0.delete()
+                    await ctx.edit(embed=localembed, file=file)
                     return finished
                 else:
-                    await ctx.respond(embed=localembed, file=file)
+                    await msg0.delete()
+                    await ctx.edit(embed=localembed, file=file)
+                    print(movelist)
                     return await blacksm()
 
             except chess.InvalidMoveError:
-                await ctx.respond("Invalid move!")
+                a = await ctx.respond("Invalid move!")
+                await a.delete(delay=1)
+                await msg0.delete(delay=1)
                 return await wusermoves()
 
             except chess.IllegalMoveError:
-                await ctx.respond("Illegal move!")
+                a = await ctx.respond("Illegal move!")
+                await a.delete(delay=1)
+                await msg0.delete(delay=1)
                 return await wusermoves()
 
             except chess.AmbiguousMoveError:
-                await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                a = await ctx.respond("Please specify which piece youre going to move!\nThere are two or more pieces can reach that square!")
+                await a.delete(delay=1)
+                await msg0.delete(delay=1)
                 return await wusermoves()
 
     gensvg()
@@ -2298,13 +2337,12 @@ async def chessinmywayto2000(ctx: ApplicationContext, black_player: discord.User
 
     await ctx.respond(embed=localembed, file=file)
 
-    while not finished:
-        if black_player == None:
-            finished = await wenginemoves()
-            print(finished)
-        else:
-            finished = await wusermoves()
-            print(finished)
+    if black_player == None:
+        finished = await wenginemoves()
+        print(finished)
+    else:
+        finished = await wusermoves()
+        print(finished)
 
 
 

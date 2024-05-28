@@ -9,7 +9,7 @@ help, ping, viewprofile, profile, viewprogress, progressgraph, connect, verify, 
 
 ## Admin commands
 
-!reload, !clearcache, !wipe, !backup, !recover
+!reload, !clearcache, !wipe, !backup, !recover, !wipearchive
 
 ## Using Stockfish 15.1
 
